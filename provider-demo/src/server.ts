@@ -1,5 +1,4 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { verifySimulatedPayment } from "./payment.js";
 
 const manifest = {
   capability: {
@@ -24,6 +23,9 @@ const paymentRequirement = {
   accepts: [{ scheme: "exact", network: "eip155:84532", amount: "20000", asset: "simulation:usdc-base-sepolia", payTo: "simulation:independent-fx", maxTimeoutSeconds: 60, extra: { name: "USDC", version: "2", simulation: true } }],
   extensions: {}
 } as const;
+const facilitatorUrl = process.env.FACILITATOR_URL ?? "http://localhost:3200";
+const events: string[] = [];
+let executionCount = 0;
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
@@ -53,21 +55,37 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && pathname === "/.well-known/capabilities.json") {
       return sendJson(response, 200, { version: "1.0.0", capabilities: [manifest] });
     }
+    if (request.method === "GET" && pathname === "/events") return sendJson(response, 200, { events, executionCount });
 
     if (request.method === "POST" && pathname === "/execute") {
       const proofHeader = request.headers["payment-signature"];
       let proof: unknown;
       try { proof = proofHeader ? JSON.parse(Buffer.from(String(proofHeader), "base64").toString("utf8")) : undefined; } catch { proof = undefined; }
-      if (!verifySimulatedPayment(paymentRequirement.accepts[0], proof)) {
+      if (!proofHeader) {
+        response.setHeader("payment-required", Buffer.from(JSON.stringify(paymentRequirement)).toString("base64"));
+        return sendJson(response, 402, { status: "payment_required" });
+      }
+      const facilitatorRequest = { x402Version: 2, paymentPayload: proof, paymentRequirements: paymentRequirement.accepts[0] };
+      let verification: { isValid?: boolean };
+      try { verification = await (await fetch(new URL("/verify", facilitatorUrl), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(facilitatorRequest) })).json() as { isValid?: boolean }; } catch { return sendJson(response, 503, { error: "Facilitator unavailable" }); }
+      if (verification.isValid !== true) {
         response.setHeader("payment-required", Buffer.from(JSON.stringify(paymentRequirement)).toString("base64"));
         return sendJson(response, 402, { status: "payment_required", paymentRequired: paymentRequirement });
       }
+      events.push("EXECUTE_ATTEMPT");
+      if (process.env.SIMULATE_EXECUTION_FAILURE === "true") { events.push("EXECUTE_FAILURE"); throw new Error("Simulated protected capability failure."); }
       const input = await readJson(request);
       if (!isInput(input)) throw new Error("Input must contain a finite numeric amount and string from/to currency codes.");
       const from = input.from.toUpperCase();
       const to = input.to.toUpperCase();
       if (from !== "USD" || to !== "ZAR") throw new Error("No mock/test exchange rate for this currency pair.");
-      response.setHeader("payment-response", Buffer.from(JSON.stringify({ success: true, transaction: "", network: "eip155:84532", amount: paymentRequirement.accepts[0].amount, extensions: {} })).toString("base64"));
+      events.push("EXECUTE"); executionCount += 1;
+      let settlement: { success?: boolean; transaction?: string; network?: string; amount?: string; extensions?: Record<string, unknown> };
+      events.push("SETTLE_ATTEMPT");
+      try { settlement = await (await fetch(new URL("/settle", facilitatorUrl), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(facilitatorRequest) })).json() as typeof settlement; } catch { events.push("SETTLE_FAILURE"); return sendJson(response, 503, { error: "Facilitator unavailable after execution" }); }
+      if (settlement.success !== true || settlement.network !== "eip155:84532" || typeof settlement.transaction !== "string") { events.push("SETTLE_FAILURE"); return sendJson(response, 502, { error: "Facilitator settlement rejected" }); }
+      events.push("SETTLE");
+      response.setHeader("payment-response", Buffer.from(JSON.stringify(settlement)).toString("base64"));
       return sendJson(response, 200, {
         result: Number((input.amount * 18.5).toFixed(2)),
         currency: to,

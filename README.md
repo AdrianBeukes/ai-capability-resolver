@@ -55,6 +55,10 @@ Flow: `402 → PAYMENT-REQUIRED → PAYMENT-SIGNATURE → simulated verification
 
 This is not full x402 interoperability. Real Base Sepolia requires a genuine USDC contract address and recipient address, real EIP-712/EIP-3009 authorization from an external wallet, expiry and replay protection, supported scheme/network verification, facilitator `/verify` and `/settle`, and blockchain settlement. None is implemented here.
 
+## Simulated Facilitator Boundary
+
+The architecture separates the agent/resolver (capability discovery and economic routing), resource server (`independent-fx`, which sells and executes the capability), and `facilitator-demo` (payment verification and settlement). The provider follows authorization ordering: `PAYMENT-SIGNATURE → /verify → capability execution → /settle → PAYMENT-RESPONSE`. The facilitator advertises only V2 `exact` on `eip155:84532`; it is deterministic simulation with no wallet, key, chain connection, or ability to move funds.
+
 ```bash
 curl http://localhost:3000/health
 curl http://localhost:3000/capabilities

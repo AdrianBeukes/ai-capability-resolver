@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc -p tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p provider-demo\\tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p agent-demo\\tsconfig.json",
+    "build": "tsc -p tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p provider-demo\\tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p agent-demo\\tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p facilitator-demo\\tsconfig.json",
     "test": "tsx --test test/**/*.test.ts"
   },
   "devDependencies": {
