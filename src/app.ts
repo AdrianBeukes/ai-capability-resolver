@@ -6,6 +6,7 @@ import { executeLocalTool, parseToolArguments, type ToolArguments } from "./loca
 import { createProviderRegistry, type ProviderRegistry } from "./registry.js";
 import { resolveProvider, resolveRequest, selectProvider } from "./resolver.js";
 import { CURRENCY_CONVERSION, type CapabilityId, type CurrencyConversionInput, type ExecutionPolicy } from "./types.js";
+import { SimulatedPaymentClient, type PaymentClient, type PaymentRequirement } from "./payment.js";
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
@@ -38,7 +39,9 @@ function parsePolicy(value: unknown): ExecutionPolicy {
     }
     if (candidate !== undefined) policy[field] = candidate;
   }
-  for (const field of Object.keys(value)) if (!(["maxPriceUsd", "minReliability", "maxLatencyMs"] as string[]).includes(field)) throw new Error(`Unknown policy field '${field}'.`);
+  if (value.allowPayment !== undefined && typeof value.allowPayment !== "boolean") throw new Error("Policy 'allowPayment' must be a boolean.");
+  if (value.allowPayment !== undefined) policy.allowPayment = value.allowPayment;
+  for (const field of Object.keys(value)) if (!(["maxPriceUsd", "minReliability", "maxLatencyMs", "allowPayment"] as string[]).includes(field)) throw new Error(`Unknown policy field '${field}'.`);
   return policy;
 }
 
@@ -65,7 +68,13 @@ function toolDescription(capability: NonNullable<ReturnType<typeof getCapability
   };
 }
 
-async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, policy: ExecutionPolicy, registry: ProviderRegistry) {
+function isPaymentRequirement(value: unknown): value is PaymentRequirement {
+  return isRecord(value) && value.protocol === "x402" && value.scheme === "exact" && typeof value.amount === "string"
+    && value.asset === "USDC" && value.network === "base-sepolia" && typeof value.providerId === "string"
+    && typeof value.requestId === "string" && value.simulation === true;
+}
+
+async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, policy: ExecutionPolicy, registry: ProviderRegistry, paymentClient: PaymentClient) {
   const routing = resolveProvider(capability, policy, registry.list());
   if (routing.status === "no_eligible_provider") return routing;
   const provider = selectProvider(capability, registry.list(), policy);
@@ -89,6 +98,26 @@ async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, p
   } catch {
     throw new Error("Unable to invoke the selected provider.");
   }
+  if (response.status === 402) {
+    const body: unknown = await response.json();
+    const requirement = isRecord(body) && isPaymentRequirement(body.paymentRequired) ? body.paymentRequired : undefined;
+    if (!requirement) throw new Error("Selected provider returned an invalid payment requirement.");
+    if (!policy.allowPayment) return { status: "payment_required", tool: capability, providerId: provider.id, paymentRequired: requirement, routing };
+    const proof = await paymentClient.pay(requirement);
+    try {
+      response = await fetch(new URL(manifest.endpoint.path, provider.baseUrl), {
+        method: manifest.endpoint.method,
+        headers: { "content-type": "application/json", "payment-signature": JSON.stringify(proof) },
+        body: JSON.stringify(arguments_)
+      });
+    } catch { throw new Error("Unable to retry the selected provider with payment."); }
+  }
+  if (response.status === 402) {
+    const body: unknown = await response.json();
+    const requirement = isRecord(body) && isPaymentRequirement(body.paymentRequired) ? body.paymentRequired : undefined;
+    if (!requirement) throw new Error("Selected provider returned an invalid payment requirement.");
+    return { status: "payment_required", tool: capability, providerId: provider.id, paymentRequired: requirement, routing };
+  }
   if (!response.ok) throw new Error(`Selected provider returned HTTP ${response.status}.`);
   const output: unknown = await response.json();
   if (!isRecord(output)) {
@@ -97,7 +126,7 @@ async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, p
   return { tool: capability, providerId: provider.id, output, routing };
 }
 
-export function createAppServer(registry: ProviderRegistry = createProviderRegistry()) {
+export function createAppServer(registry: ProviderRegistry = createProviderRegistry(), paymentClient: PaymentClient = new SimulatedPaymentClient()) {
   return createServer(async (request, response) => {
     try {
       const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -138,8 +167,9 @@ export function createAppServer(registry: ProviderRegistry = createProviderRegis
         const capability = getCapability(body.name, registry.list());
         if (!capability) throw new Error("Requested tool is not available.");
         const arguments_ = parseToolArguments(capability.id, body.arguments);
-        const result = await invokeTool(capability.id, arguments_, parsePolicy(body.policy), registry);
-        return sendJson(response, "status" in result && result.status === "no_eligible_provider" ? 422 : 200, { result });
+        const result = await invokeTool(capability.id, arguments_, parsePolicy(body.policy), registry, paymentClient);
+        const status = "status" in result && result.status === "no_eligible_provider" ? 422 : "status" in result && result.status === "payment_required" ? 402 : 200;
+        return sendJson(response, status, { result });
       }
 
       if (request.method === "POST" && pathname === "/providers/discover") {

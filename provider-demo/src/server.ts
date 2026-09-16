@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { verifySimulatedPayment } from "./payment.js";
 
 const manifest = {
   capability: {
@@ -11,9 +12,15 @@ const manifest = {
   },
   provider: { id: "independent-fx", name: "Independent FX" },
   pricing: { amount: 0.02, currency: "USD", unit: "per_request" },
+  payment: { protocol: "x402", scheme: "exact", asset: "USDC", network: "base-sepolia" },
   estimatedLatencyMs: 150,
   reliability: 0.995,
   endpoint: { method: "POST", path: "/execute", action: "currency_conversion" }
+} as const;
+
+const paymentRequirement = {
+  protocol: "x402", scheme: "exact", amount: "0.02", asset: "USDC", network: "base-sepolia",
+  providerId: "independent-fx", requestId: "independent-fx:currency_conversion", simulation: true
 } as const;
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
@@ -46,6 +53,13 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && pathname === "/execute") {
+      const proofHeader = request.headers["payment-signature"];
+      let proof: unknown;
+      try { proof = proofHeader ? JSON.parse(String(proofHeader)) : undefined; } catch { proof = undefined; }
+      if (!verifySimulatedPayment(paymentRequirement, proof)) {
+        response.setHeader("payment-required", Buffer.from(JSON.stringify(paymentRequirement)).toString("base64"));
+        return sendJson(response, 402, { status: "payment_required", paymentRequired: paymentRequirement });
+      }
       const input = await readJson(request);
       if (!isInput(input)) throw new Error("Input must contain a finite numeric amount and string from/to currency codes.");
       const from = input.from.toUpperCase();
@@ -55,7 +69,8 @@ const server = createServer(async (request, response) => {
         result: Number((input.amount * 18.5).toFixed(2)),
         currency: to,
         rate: 18.5,
-        dataSource: "mock/test data"
+        dataSource: "mock/test data",
+        payment: { ...paymentRequirement, status: "simulated_settled", simulation: true }
       });
     }
 

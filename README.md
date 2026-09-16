@@ -43,6 +43,14 @@ Tool metadata is the contract that lets a model select capabilities without sour
 npm start --prefix agent-demo
 ```
 
+## Simulated x402 Payment Flow
+
+`independent-fx` advertises simulated x402 metadata (`exact`, USDC, Base Sepolia) and returns HTTP 402 with a machine-readable requirement before work runs. `allowPayment` is false unless a caller explicitly sets it true. The generic deterministic `SimulatedPaymentClient` produces a clearly marked simulated proof, which the provider verifies before execution. No wallet, signing key, blockchain, real USDC, or settlement is used.
+
+## Path to Real x402
+
+This prototype is not x402 V2 compliant. Real Base Sepolia support would require CAIP-2 network identifiers, USDC contract/atomic-unit amounts, a recipient (`payTo`), canonical `PaymentRequired` and `PaymentPayload` structures, EIP-712/EIP-3009 signing by an external wallet, replay/expiry handling, and facilitator verification/settlement plus `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and `PAYMENT-RESPONSE` header handling. Those steps are intentionally absent.
+
 ```bash
 curl http://localhost:3000/health
 curl http://localhost:3000/capabilities

@@ -19,6 +19,9 @@ function isManifest(value: unknown): value is CapabilityManifest {
     && typeof pricing.amount === "number"
     && pricing.currency === "USD"
     && pricing.unit === "per_request"
+    && (value.payment === undefined || (isRecord(value.payment)
+      && value.payment.protocol === "x402" && value.payment.scheme === "exact"
+      && value.payment.asset === "USDC" && value.payment.network === "base-sepolia"))
     && typeof value.estimatedLatencyMs === "number"
     && typeof value.reliability === "number"
     && endpoint.method === "POST"

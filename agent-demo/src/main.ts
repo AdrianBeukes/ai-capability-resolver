@@ -16,7 +16,7 @@ console.log(`AI DECISION:\n${trace.decision.tool}\n`);
 console.log(`ARGUMENTS:\n${Object.entries(trace.decision.arguments).map(([key, value]) => `${key}=${value}`).join("\n")}\n`);
 console.log(`POLICY:\n${JSON.stringify(policy ?? {})}\n`);
 if ("status" in trace.result) {
-  console.log(`RESOLVER:\nno eligible provider\n`);
+  console.log(`RESOLVER:\n${trace.result.status === "payment_required" ? "payment required" : "no eligible provider"}\n`);
   console.log(`RESULT:\n${JSON.stringify(trace.result)}`);
 } else {
   console.log(`RESOLVER:\nselected provider = ${trace.result.providerId}\n`);

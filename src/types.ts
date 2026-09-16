@@ -24,6 +24,12 @@ export interface CapabilityManifest {
     currency: "USD";
     unit: "per_request";
   };
+  payment?: {
+    protocol: "x402";
+    scheme: "exact";
+    asset: "USDC";
+    network: "base-sepolia";
+  };
   estimatedLatencyMs: number;
   reliability: number;
   endpoint: {
@@ -49,6 +55,8 @@ export interface ExecutionPolicy {
   maxPriceUsd?: number;
   minReliability?: number;
   maxLatencyMs?: number;
+  /** Explicit opt-in required before a paid provider may invoke any payment client. */
+  allowPayment?: boolean;
 }
 
 export type ProviderRejectionReason = "price_exceeds_maximum" | "reliability_below_minimum" | "latency_exceeds_maximum";

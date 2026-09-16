@@ -4,6 +4,7 @@ export interface ExecutionPolicy {
   maxPriceUsd?: number;
   minReliability?: number;
   maxLatencyMs?: number;
+  allowPayment?: boolean;
 }
 
 export interface ToolDescription {
@@ -28,10 +29,17 @@ export interface NoEligibleProviderResult {
   rejectedProviders: Array<{ providerId: string; reasons: string[] }>;
 }
 
+export interface PaymentRequiredResult {
+  status: "payment_required";
+  tool: string;
+  providerId: string;
+  paymentRequired: Record<string, unknown>;
+}
+
 export interface AgentTrace {
   discoveredTools: ToolDescription[];
   decision: { tool: string; arguments: Record<string, unknown> };
-  result: ToolCallResult | NoEligibleProviderResult;
+  result: ToolCallResult | NoEligibleProviderResult | PaymentRequiredResult;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -54,19 +62,19 @@ export class CapabilityAgentClient {
     return (await response.json() as { tool: ToolDescription }).tool;
   }
 
-  async callTool(name: string, arguments_: Record<string, unknown>, policy?: ExecutionPolicy): Promise<ToolCallResult | NoEligibleProviderResult> {
+  async callTool(name: string, arguments_: Record<string, unknown>, policy?: ExecutionPolicy): Promise<ToolCallResult | NoEligibleProviderResult | PaymentRequiredResult> {
     const response = await fetch(new URL("/tools/call", this.resolverUrl), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name, arguments: arguments_, policy })
     });
-    const body = await response.json() as { result?: ToolCallResult | NoEligibleProviderResult };
-    if (response.status === 422 && body.result && "status" in body.result) return body.result as NoEligibleProviderResult;
+    const body = await response.json() as { result?: ToolCallResult | NoEligibleProviderResult | PaymentRequiredResult };
+    if ((response.status === 422 || response.status === 402) && body.result && "status" in body.result) return body.result as NoEligibleProviderResult | PaymentRequiredResult;
     if (!response.ok || !body.result) throw new Error(`Tool call failed with HTTP ${response.status}.`);
     return body.result as ToolCallResult;
   }
 
-  async runTask(task: string, policy?: ExecutionPolicy): Promise<ToolCallResult | NoEligibleProviderResult> {
+  async runTask(task: string, policy?: ExecutionPolicy): Promise<ToolCallResult | NoEligibleProviderResult | PaymentRequiredResult> {
     return (await this.runTaskWithTrace(task, policy)).result;
   }
 
