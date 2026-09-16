@@ -1,5 +1,11 @@
 import type { LanguageModel } from "./language-model.js";
 
+export interface ExecutionPolicy {
+  maxPriceUsd?: number;
+  minReliability?: number;
+  maxLatencyMs?: number;
+}
+
 export interface ToolDescription {
   name: string;
   description: string;
@@ -12,12 +18,20 @@ export interface ToolCallResult {
   tool: string;
   providerId: string;
   output: Record<string, unknown>;
+  routing?: Record<string, unknown>;
+}
+
+export interface NoEligibleProviderResult {
+  status: "no_eligible_provider";
+  capability: string;
+  policy: ExecutionPolicy;
+  rejectedProviders: Array<{ providerId: string; reasons: string[] }>;
 }
 
 export interface AgentTrace {
   discoveredTools: ToolDescription[];
   decision: { tool: string; arguments: Record<string, unknown> };
-  result: ToolCallResult;
+  result: ToolCallResult | NoEligibleProviderResult;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,27 +54,29 @@ export class CapabilityAgentClient {
     return (await response.json() as { tool: ToolDescription }).tool;
   }
 
-  async callTool(name: string, arguments_: Record<string, unknown>): Promise<ToolCallResult> {
+  async callTool(name: string, arguments_: Record<string, unknown>, policy?: ExecutionPolicy): Promise<ToolCallResult | NoEligibleProviderResult> {
     const response = await fetch(new URL("/tools/call", this.resolverUrl), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, arguments: arguments_ })
+      body: JSON.stringify({ name, arguments: arguments_, policy })
     });
-    if (!response.ok) throw new Error(`Tool call failed with HTTP ${response.status}.`);
-    return (await response.json() as { result: ToolCallResult }).result;
+    const body = await response.json() as { result?: ToolCallResult | NoEligibleProviderResult };
+    if (response.status === 422 && body.result && "status" in body.result) return body.result as NoEligibleProviderResult;
+    if (!response.ok || !body.result) throw new Error(`Tool call failed with HTTP ${response.status}.`);
+    return body.result as ToolCallResult;
   }
 
-  async runTask(task: string): Promise<ToolCallResult> {
-    return (await this.runTaskWithTrace(task)).result;
+  async runTask(task: string, policy?: ExecutionPolicy): Promise<ToolCallResult | NoEligibleProviderResult> {
+    return (await this.runTaskWithTrace(task, policy)).result;
   }
 
-  async runTaskWithTrace(task: string): Promise<AgentTrace> {
+  async runTaskWithTrace(task: string, policy?: ExecutionPolicy): Promise<AgentTrace> {
     const discoveredTools = await this.listTools();
     const rawDecision = await this.languageModel.generate({ task, tools: discoveredTools });
     const decision = this.parseDecision(rawDecision, discoveredTools);
     const tool = await this.inspectTool(decision.tool);
     this.validateArguments(decision.arguments, tool.inputSchema);
-    const result = await this.callTool(tool.name, decision.arguments);
+    const result = await this.callTool(tool.name, decision.arguments, policy);
     return { discoveredTools, decision, result };
   }
 

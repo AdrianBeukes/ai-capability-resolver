@@ -4,8 +4,8 @@ import { discoverProvider } from "./discovery.js";
 import { execute } from "./executor.js";
 import { executeLocalTool, parseToolArguments, type ToolArguments } from "./local-tools.js";
 import { createProviderRegistry, type ProviderRegistry } from "./registry.js";
-import { resolveRequest, selectProvider } from "./resolver.js";
-import { CURRENCY_CONVERSION, type CapabilityId, type CurrencyConversionInput } from "./types.js";
+import { resolveProvider, resolveRequest, selectProvider } from "./resolver.js";
+import { CURRENCY_CONVERSION, type CapabilityId, type CurrencyConversionInput, type ExecutionPolicy } from "./types.js";
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
@@ -25,6 +25,21 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function parsePolicy(value: unknown): ExecutionPolicy {
+  if (value === undefined) return {};
+  if (!isRecord(value)) throw new Error("Policy must be an object.");
+  const policy: ExecutionPolicy = {};
+  for (const field of ["maxPriceUsd", "minReliability", "maxLatencyMs"] as const) {
+    const candidate = value[field];
+    if (candidate !== undefined && (typeof candidate !== "number" || !Number.isFinite(candidate) || candidate < 0)) {
+      throw new Error(`Policy '${field}' must be a non-negative finite number.`);
+    }
+    if (candidate !== undefined) policy[field] = candidate;
+  }
+  for (const field of Object.keys(value)) if (!(["maxPriceUsd", "minReliability", "maxLatencyMs"] as string[]).includes(field)) throw new Error(`Unknown policy field '${field}'.`);
+  return policy;
 }
 
 function parseExecutionInput(body: unknown): CurrencyConversionInput {
@@ -50,13 +65,15 @@ function toolDescription(capability: NonNullable<ReturnType<typeof getCapability
   };
 }
 
-async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, registry: ProviderRegistry) {
-  const provider = selectProvider(capability, registry.list());
+async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, policy: ExecutionPolicy, registry: ProviderRegistry) {
+  const routing = resolveProvider(capability, policy, registry.list());
+  if (routing.status === "no_eligible_provider") return routing;
+  const provider = selectProvider(capability, registry.list(), policy);
   if (!provider.baseUrl) {
     return {
       tool: capability,
       providerId: provider.id,
-      output: executeLocalTool(capability, provider.id, arguments_, registry.list())
+      output: executeLocalTool(capability, provider.id, arguments_, registry.list()), routing
     };
   }
 
@@ -77,7 +94,7 @@ async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, r
   if (!isRecord(output)) {
     throw new Error("Selected provider returned an invalid tool result.");
   }
-  return { tool: capability, providerId: provider.id, output };
+  return { tool: capability, providerId: provider.id, output, routing };
 }
 
 export function createAppServer(registry: ProviderRegistry = createProviderRegistry()) {
@@ -121,7 +138,8 @@ export function createAppServer(registry: ProviderRegistry = createProviderRegis
         const capability = getCapability(body.name, registry.list());
         if (!capability) throw new Error("Requested tool is not available.");
         const arguments_ = parseToolArguments(capability.id, body.arguments);
-        return sendJson(response, 200, { result: await invokeTool(capability.id, arguments_, registry) });
+        const result = await invokeTool(capability.id, arguments_, parsePolicy(body.policy), registry);
+        return sendJson(response, "status" in result && result.status === "no_eligible_provider" ? 422 : 200, { result });
       }
 
       if (request.method === "POST" && pathname === "/providers/discover") {
@@ -135,7 +153,7 @@ export function createAppServer(registry: ProviderRegistry = createProviderRegis
       if (request.method === "POST" && pathname === "/resolve") {
         const body = await readJson(request);
         if (!isRecord(body) || typeof body.request !== "string") throw new Error("Body must contain a string 'request'.");
-        return sendJson(response, 200, { resolved: resolveRequest(body.request, registry.list()) });
+        return sendJson(response, 200, { resolved: resolveRequest(body.request, registry.list(), parsePolicy(body.policy)) });
       }
 
       if (request.method === "POST" && pathname === "/execute") {

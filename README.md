@@ -7,7 +7,7 @@ A small TypeScript/Node.js prototype for machine-native capability discovery, pr
 - `src/providers.ts` is the in-memory provider registry. Two mock currency-conversion providers expose price, estimated latency, and reliability.
 - Every provider carries a machine-readable capability manifest: schemas, provider metadata, pricing, performance characteristics, and the local execution action. Discover the complete catalogue at `GET /.well-known/capabilities.json` or a capability at `GET /capabilities/currency_conversion`.
 - `src/capabilities.ts` derives the machine-readable capability list from that registry.
-- `src/resolver.ts` recognizes `Convert <amount> <FROM> to <TO>` requests and selects the highest-ranked eligible provider.
+- `src/resolver.ts` recognizes `Convert <amount> <FROM> to <TO>` requests. It first applies a caller-supplied execution policy, records machine-readable rejection codes, then ranks only eligible providers.
 - `src/ranking.ts` uses the deterministic score: `reliability * 100 - price * 100 - estimatedLatencyMs / 100`. Higher scores win; provider ID breaks ties.
 - `src/executor.ts` runs the selected local mock provider. USD/ZAR uses a fixed rate of `18.5`, clearly returned as `mock/test data`.
 - `src/server.ts` is a minimal Node HTTP server.
@@ -29,7 +29,7 @@ To run the separate local provider demo, use `npm run dev --prefix provider-demo
 
 ## Minimal MCP-style tool boundary
 
-The resolver provides a small HTTP boundary inspired by MCP tool semantics: `GET /tools` lists tools, `GET /tools/:name` returns one tool description and schema, and `POST /tools/call` invokes a tool with `{ "name": "currency_conversion", "arguments": { ... } }`. It is not a full MCP JSON-RPC implementation: there is no MCP lifecycle, transport negotiation, resources, prompts, or third-party SDK. The independent `agent-demo` uses only these HTTP endpoints.
+The resolver provides a small HTTP boundary inspired by MCP tool semantics: `GET /tools` lists tools, `GET /tools/:name` returns one tool description and schema, and `POST /tools/call` invokes a tool with `{ "name": "currency_conversion", "arguments": { ... }, "policy": { "maxPriceUsd": 0.03 } }`. Policy is separate from model-selected capability arguments and all values are simulated metadata. A successful result includes routing information (`selectedProvider`, `eligibleProviders`, and `rejectedProviders`). When providers support a capability but none meet policy, the endpoint returns HTTP `422 Unprocessable Content` and a structured `no_eligible_provider` result with rejection codes (`price_exceeds_maximum`, `reliability_below_minimum`, `latency_exceeds_maximum`); no provider is invoked. It is not a full MCP JSON-RPC implementation: there is no MCP lifecycle, transport negotiation, resources, prompts, or third-party SDK. The independent `agent-demo` uses only these HTTP endpoints.
 
 ## LLM-driven agent demo
 

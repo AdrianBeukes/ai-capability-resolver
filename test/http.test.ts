@@ -61,7 +61,8 @@ const independentManifest = {
   endpoint: { method: "POST", path: "/execute", action: "currency_conversion" }
 };
 
-async function withExecutableProvider(run: (baseUrl: string) => Promise<void>): Promise<void> {
+async function withExecutableProvider(run: (baseUrl: string, executionCalls: () => number) => Promise<void>): Promise<void> {
+  let calls = 0;
   const provider = createServer(async (request, response: ServerResponse) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
     if (request.method === "GET" && pathname === "/.well-known/capabilities.json") {
@@ -70,6 +71,7 @@ async function withExecutableProvider(run: (baseUrl: string) => Promise<void>): 
       return;
     }
     if (request.method === "POST" && pathname === "/execute") {
+      calls += 1;
       let body = "";
       for await (const chunk of request) body += chunk;
       const input = JSON.parse(body) as { amount: number; to: string };
@@ -82,7 +84,7 @@ async function withExecutableProvider(run: (baseUrl: string) => Promise<void>): 
   await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
   const { port } = provider.address() as AddressInfo;
   try {
-    await run(`http://127.0.0.1:${port}`);
+    await run(`http://127.0.0.1:${port}`, () => calls);
   } finally {
     await new Promise<void>((resolve, reject) => provider.close((error) => error ? reject(error) : resolve()));
   }
@@ -334,4 +336,57 @@ test("agent-demo has no direct dependency on resolver or provider source", async
   const source = await readFile(new URL("../agent-demo/src/client.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /from\s+["'](?:\.\.\/)?(?:src|provider-demo)[/\\]/);
   assert.doesNotMatch(source, /provider-demo|independent-fx/);
+});
+
+test("tool calls expose routing and do not execute when policy rejects every provider", async () => {
+  await withServer(async (baseUrl) => {
+    const success = await fetch(`${baseUrl}/tools/call`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "currency_conversion", arguments: { amount: 100, from: "USD", to: "ZAR" }, policy: { maxPriceUsd: 0.01 } })
+    });
+    assert.equal(success.status, 200);
+    const successBody = await success.json() as { result: { providerId: string; routing: { eligibleProviders: unknown[]; rejectedProviders: Array<{ reasons: string[] }> } } };
+    assert.equal(successBody.result.providerId, "value-fx");
+    assert.equal(successBody.result.routing.eligibleProviders.length, 1);
+    assert.deepEqual(successBody.result.routing.rejectedProviders[0].reasons, ["price_exceeds_maximum"]);
+
+    const rejected = await fetch(`${baseUrl}/tools/call`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "currency_conversion", arguments: { amount: 100, from: "USD", to: "ZAR" }, policy: { maxPriceUsd: 0 } })
+    });
+    assert.equal(rejected.status, 422);
+    const rejectedBody = await rejected.json() as { result: { status: string; rejectedProviders: Array<{ reasons: string[] }> } };
+    assert.equal(rejectedBody.result.status, "no_eligible_provider");
+    assert.equal(rejectedBody.result.rejectedProviders.length, 2);
+  });
+});
+
+test("discovered providers use the same policy gate and the agent passes caller policy separately", async () => {
+  await withExecutableProvider(async (providerUrl, executionCalls) => {
+    await withServer(async (resolverUrl) => {
+      await fetch(`${resolverUrl}/providers/discover`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: providerUrl }) });
+      const response = await fetch(`${resolverUrl}/tools/call`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "currency_conversion", arguments: { amount: 100, from: "USD", to: "ZAR" }, policy: { maxPriceUsd: 0.01 } })
+      });
+      const result = await response.json() as { result: { providerId: string; routing: { rejectedProviders: Array<{ providerId: string; reasons: string[] }> } } };
+      assert.equal(result.result.providerId, "value-fx");
+      assert.deepEqual(result.result.routing.rejectedProviders.find((provider) => provider.providerId === "independent-fx")?.reasons, ["price_exceeds_maximum"]);
+      assert.equal(executionCalls(), 0);
+
+      const impossible = await fetch(`${resolverUrl}/tools/call`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "currency_conversion", arguments: { amount: 100, from: "USD", to: "ZAR" }, policy: { maxPriceUsd: 0 } })
+      });
+      assert.equal(impossible.status, 422);
+      assert.equal(executionCalls(), 0);
+
+      const model = new RecordingLanguageModel('{"tool":"currency_conversion","arguments":{"amount":100,"from":"USD","to":"ZAR"}}');
+      const agentResult = await new CapabilityAgentClient(resolverUrl, model).runTask("Convert 100 USD to ZAR", { maxPriceUsd: 0.01 });
+      assert.equal("status" in agentResult, false);
+      if (!("status" in agentResult)) assert.equal(agentResult.providerId, "value-fx");
+      assert.equal(model.requests.length, 1);
+      assert.deepEqual(Object.keys(model.requests[0]), ["task", "tools"]);
+    });
+  });
 });

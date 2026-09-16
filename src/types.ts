@@ -44,6 +44,44 @@ export interface Provider {
   baseUrl?: string;
 }
 
+/** Caller-supplied, simulated execution constraints. These are never model-selected tool arguments. */
+export interface ExecutionPolicy {
+  maxPriceUsd?: number;
+  minReliability?: number;
+  maxLatencyMs?: number;
+}
+
+export type ProviderRejectionReason = "price_exceeds_maximum" | "reliability_below_minimum" | "latency_exceeds_maximum";
+
+export interface ProviderRoutingSummary {
+  providerId: string;
+  priceUsd: number;
+  reliability: number;
+  estimatedLatencyMs: number;
+}
+
+export interface RejectedProvider extends ProviderRoutingSummary {
+  reasons: ProviderRejectionReason[];
+}
+
+export interface EligibleProviderResolution {
+  status: "eligible_provider";
+  capability: CapabilityId;
+  policy: ExecutionPolicy;
+  selectedProvider: ProviderRoutingSummary;
+  eligibleProviders: ProviderRoutingSummary[];
+  rejectedProviders: RejectedProvider[];
+}
+
+export interface NoEligibleProviderResolution {
+  status: "no_eligible_provider";
+  capability: CapabilityId;
+  policy: ExecutionPolicy;
+  rejectedProviders: RejectedProvider[];
+}
+
+export type ProviderResolution = EligibleProviderResolution | NoEligibleProviderResolution;
+
 export interface CurrencyConversionInput {
   amount: number;
   from: string;
