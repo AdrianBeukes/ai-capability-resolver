@@ -1,0 +1,21 @@
+{
+  "name": "ai-capability-resolver",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A minimal machine-native capability discovery and routing prototype.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p provider-demo\\tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p agent-demo\\tsconfig.json",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

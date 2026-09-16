@@ -1,0 +1,11 @@
+{
+  "name": "independent-fx-provider-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "..\\node_modules\\.bin\\tsx.cmd watch src\\server.ts",
+    "start": "node dist/server.js",
+    "build": "..\\node_modules\\.bin\\tsc.cmd -p tsconfig.json"
+  }
+}
