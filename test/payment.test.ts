@@ -6,13 +6,15 @@ import { createAppServer } from "../src/app.js";
 import { SimulatedPaymentClient, type PaymentClient, type PaymentProof, type PaymentRequirement } from "../src/payment.js";
 import { createProviderRegistry } from "../src/registry.js";
 import type { Provider } from "../src/types.js";
+import { encodeX402, type PaymentPayload, type PaymentRequired } from "../src/x402.js";
 
-const requirement: PaymentRequirement = { protocol: "x402", scheme: "exact", amount: "0.02", asset: "USDC", network: "base-sepolia", providerId: "paid-fx", requestId: "paid-fx:currency_conversion", simulation: true };
+const requirement: PaymentRequirement = { scheme: "exact", network: "eip155:84532", amount: "20000", asset: "simulation:usdc-base-sepolia", payTo: "simulation:paid-fx", maxTimeoutSeconds: 60, extra: { name: "USDC", version: "2", simulation: true } };
+const required: PaymentRequired = { x402Version: 2, error: "PAYMENT-SIGNATURE header is required", resource: { url: "http://paid.test/execute", mimeType: "application/json" }, accepts: [requirement], extensions: {} };
 
 class RecordingPaymentClient implements PaymentClient {
   calls = 0;
-  constructor(private readonly proof: PaymentProof = { protocol: "x402", providerId: "paid-fx", requestId: "paid-fx:currency_conversion", authorization: "simulated-authorization:paid-fx:paid-fx:currency_conversion:0.02", simulation: true }) {}
-  async pay(_requirement: PaymentRequirement): Promise<PaymentProof> { this.calls += 1; return this.proof; }
+  constructor(private readonly proof?: PaymentProof) {}
+  async pay(requirement_: PaymentRequirement): Promise<PaymentProof> { this.calls += 1; return this.proof ?? new SimulatedPaymentClient().pay(requirement_); }
 }
 
 async function withPaidProvider(run: (url: string, executions: () => number) => Promise<void>): Promise<void> {
@@ -20,11 +22,11 @@ async function withPaidProvider(run: (url: string, executions: () => number) => 
   const server = createServer(async (request, response: ServerResponse) => {
     if (request.method !== "POST" || new URL(request.url ?? "/", "http://localhost").pathname !== "/execute") return response.writeHead(404).end();
     const proof = request.headers["payment-signature"];
-    if (!proof) { response.writeHead(402, { "content-type": "application/json" }); response.end(JSON.stringify({ status: "payment_required", paymentRequired: requirement })); return; }
-    const parsed = JSON.parse(String(proof)) as PaymentProof;
-    if (parsed.authorization !== "simulated-authorization:paid-fx:paid-fx:currency_conversion:0.02") { response.writeHead(402, { "content-type": "application/json" }); response.end(JSON.stringify({ status: "payment_required", paymentRequired: requirement })); return; }
+    if (!proof) { response.writeHead(402, { "content-type": "application/json", "payment-required": encodeX402(required) }); response.end(JSON.stringify({ status: "payment_required" })); return; }
+    const parsed = JSON.parse(Buffer.from(String(proof), "base64").toString("utf8")) as PaymentProof;
+    if (parsed.x402Version !== 2 || parsed.accepted.amount !== requirement.amount || (parsed.payload.simulation as Record<string, unknown>)?.authorization !== "SIMULATED_AUTHORIZATION:20000") { response.writeHead(402, { "content-type": "application/json", "payment-required": encodeX402(required) }); response.end(JSON.stringify({ status: "payment_required" })); return; }
     executionCount += 1;
-    response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify({ result: 1850, currency: "ZAR", payment: { ...requirement, status: "simulated_settled" } }));
+    response.writeHead(200, { "content-type": "application/json", "payment-response": encodeX402({ success: true, transaction: "", network: "eip155:84532", amount: "20000", extensions: { simulation: true } }) }); response.end(JSON.stringify({ result: 1850, currency: "ZAR" }));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
@@ -40,7 +42,7 @@ async function call(baseUrl: string, policy: Record<string, unknown>) { return f
 test("simulated payment client is generic, deterministic, and contains no credentials", async () => {
   const proof = await new SimulatedPaymentClient().pay(requirement);
   assert.deepEqual(proof, await new SimulatedPaymentClient().pay(requirement));
-  assert.equal(proof.simulation, true);
+  assert.equal((proof.payload.simulation as Record<string, unknown>).simulation, true);
   assert.doesNotMatch(JSON.stringify(proof), /private|seed|wallet/i);
 });
 
@@ -61,7 +63,7 @@ test("paid provider requires an explicit allowPayment opt-in before execution", 
 test("economic rejection prevents payment and invalid proof prevents execution", async () => {
   await withPaidProvider(async (providerUrl, executions) => {
     const registry = createProviderRegistry(); registry.register(paidProvider(providerUrl));
-    const invalid = new RecordingPaymentClient({ protocol: "x402", providerId: "paid-fx", requestId: "paid-fx:currency_conversion", authorization: "not-a-valid-simulated-proof", simulation: true });
+    const invalid = new RecordingPaymentClient({ x402Version: 2, accepted: requirement, payload: { simulation: { authorization: "invalid", simulation: true } }, extensions: {} });
     const app = createAppServer(registry, invalid); await new Promise<void>((resolve) => app.listen(0, "127.0.0.1", resolve)); const { port } = app.address() as AddressInfo;
     try {
       const budget = await call(`http://127.0.0.1:${port}`, { allowPayment: true, maxPriceUsd: 0.001 });

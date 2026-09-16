@@ -43,13 +43,17 @@ Tool metadata is the contract that lets a model select capabilities without sour
 npm start --prefix agent-demo
 ```
 
-## Simulated x402 Payment Flow
+## Canonical x402 V2 Transport
 
-`independent-fx` advertises simulated x402 metadata (`exact`, USDC, Base Sepolia) and returns HTTP 402 with a machine-readable requirement before work runs. `allowPayment` is false unless a caller explicitly sets it true. The generic deterministic `SimulatedPaymentClient` produces a clearly marked simulated proof, which the provider verifies before execution. No wallet, signing key, blockchain, real USDC, or settlement is used.
+The paid `independent-fx` provider uses HTTP 402 plus base64 JSON `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and `PAYMENT-RESPONSE` headers. Its envelope uses V2 `PaymentRequired`, `PaymentRequirements`, `PaymentPayload`, and settlement-response field names, with CAIP-2 `eip155:84532`. The Phase 7 price remains simulated USD metadata (`0.02` USD/request); the V2 `amount` is the separate string atomic-unit development value `"20000"` (USDC-style six-decimal representation), never calculated using floating point.
+
+## Simulated Authorization / Settlement Boundary
+
+Flow: `402 → PAYMENT-REQUIRED → PAYMENT-SIGNATURE → simulated verification → simulated settlement → execution → PAYMENT-RESPONSE`. The protocol envelope and header encoding follow V2 where implemented. Only the narrow exact-EVM authorization payload is simulated (`payload.simulation`): no wallet, private key, EIP-712 signature, EIP-3009 authorization, blockchain transaction, facilitator, or real asset exists. `asset` and `payTo` are explicitly non-spendable `simulation:` identifiers, not addresses.
 
 ## Path to Real x402
 
-This prototype is not x402 V2 compliant. Real Base Sepolia support would require CAIP-2 network identifiers, USDC contract/atomic-unit amounts, a recipient (`payTo`), canonical `PaymentRequired` and `PaymentPayload` structures, EIP-712/EIP-3009 signing by an external wallet, replay/expiry handling, and facilitator verification/settlement plus `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and `PAYMENT-RESPONSE` header handling. Those steps are intentionally absent.
+This is not full x402 interoperability. Real Base Sepolia requires a genuine USDC contract address and recipient address, real EIP-712/EIP-3009 authorization from an external wallet, expiry and replay protection, supported scheme/network verification, facilitator `/verify` and `/settle`, and blockchain settlement. None is implemented here.
 
 ```bash
 curl http://localhost:3000/health

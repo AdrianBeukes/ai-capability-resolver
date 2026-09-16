@@ -19,8 +19,10 @@ const manifest = {
 } as const;
 
 const paymentRequirement = {
-  protocol: "x402", scheme: "exact", amount: "0.02", asset: "USDC", network: "base-sepolia",
-  providerId: "independent-fx", requestId: "independent-fx:currency_conversion", simulation: true
+  x402Version: 2, error: "PAYMENT-SIGNATURE header is required",
+  resource: { url: "http://localhost:3100/execute", description: "Simulated paid currency conversion", mimeType: "application/json", serviceName: "Independent FX" },
+  accepts: [{ scheme: "exact", network: "eip155:84532", amount: "20000", asset: "simulation:usdc-base-sepolia", payTo: "simulation:independent-fx", maxTimeoutSeconds: 60, extra: { name: "USDC", version: "2", simulation: true } }],
+  extensions: {}
 } as const;
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
@@ -55,8 +57,8 @@ const server = createServer(async (request, response) => {
     if (request.method === "POST" && pathname === "/execute") {
       const proofHeader = request.headers["payment-signature"];
       let proof: unknown;
-      try { proof = proofHeader ? JSON.parse(String(proofHeader)) : undefined; } catch { proof = undefined; }
-      if (!verifySimulatedPayment(paymentRequirement, proof)) {
+      try { proof = proofHeader ? JSON.parse(Buffer.from(String(proofHeader), "base64").toString("utf8")) : undefined; } catch { proof = undefined; }
+      if (!verifySimulatedPayment(paymentRequirement.accepts[0], proof)) {
         response.setHeader("payment-required", Buffer.from(JSON.stringify(paymentRequirement)).toString("base64"));
         return sendJson(response, 402, { status: "payment_required", paymentRequired: paymentRequirement });
       }
@@ -65,12 +67,13 @@ const server = createServer(async (request, response) => {
       const from = input.from.toUpperCase();
       const to = input.to.toUpperCase();
       if (from !== "USD" || to !== "ZAR") throw new Error("No mock/test exchange rate for this currency pair.");
+      response.setHeader("payment-response", Buffer.from(JSON.stringify({ success: true, transaction: "", network: "eip155:84532", amount: paymentRequirement.accepts[0].amount, extensions: {} })).toString("base64"));
       return sendJson(response, 200, {
         result: Number((input.amount * 18.5).toFixed(2)),
         currency: to,
         rate: 18.5,
         dataSource: "mock/test data",
-        payment: { ...paymentRequirement, status: "simulated_settled", simulation: true }
+        payment: { ...paymentRequirement.accepts[0], status: "simulated_settled", simulation: true }
       });
     }
 

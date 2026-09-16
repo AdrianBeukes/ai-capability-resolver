@@ -6,7 +6,8 @@ import { executeLocalTool, parseToolArguments, type ToolArguments } from "./loca
 import { createProviderRegistry, type ProviderRegistry } from "./registry.js";
 import { resolveProvider, resolveRequest, selectProvider } from "./resolver.js";
 import { CURRENCY_CONVERSION, type CapabilityId, type CurrencyConversionInput, type ExecutionPolicy } from "./types.js";
-import { SimulatedPaymentClient, type PaymentClient, type PaymentRequirement } from "./payment.js";
+import { SimulatedPaymentClient, type PaymentClient } from "./payment.js";
+import { decodeX402, encodeX402, isPaymentRequired, type PaymentRequirements } from "./x402.js";
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
@@ -68,10 +69,14 @@ function toolDescription(capability: NonNullable<ReturnType<typeof getCapability
   };
 }
 
-function isPaymentRequirement(value: unknown): value is PaymentRequirement {
-  return isRecord(value) && value.protocol === "x402" && value.scheme === "exact" && typeof value.amount === "string"
-    && value.asset === "USDC" && value.network === "base-sepolia" && typeof value.providerId === "string"
-    && typeof value.requestId === "string" && value.simulation === true;
+function paymentRequirement(response: Response): PaymentRequirements {
+  const raw = response.headers.get("payment-required");
+  if (!raw) throw new Error("Selected provider omitted PAYMENT-REQUIRED.");
+  const required = decodeX402(raw);
+  if (!isPaymentRequired(required)) throw new Error("Selected provider returned an invalid x402 PaymentRequired.");
+  const accepted = required.accepts.find((item) => item.scheme === "exact" && item.network === "eip155:84532");
+  if (!accepted) throw new Error("Selected provider offers no supported x402 payment requirement.");
+  return accepted;
 }
 
 async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, policy: ExecutionPolicy, registry: ProviderRegistry, paymentClient: PaymentClient) {
@@ -99,26 +104,30 @@ async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, p
     throw new Error("Unable to invoke the selected provider.");
   }
   if (response.status === 402) {
-    const body: unknown = await response.json();
-    const requirement = isRecord(body) && isPaymentRequirement(body.paymentRequired) ? body.paymentRequired : undefined;
-    if (!requirement) throw new Error("Selected provider returned an invalid payment requirement.");
+    const requirement = paymentRequirement(response);
     if (!policy.allowPayment) return { status: "payment_required", tool: capability, providerId: provider.id, paymentRequired: requirement, routing };
     const proof = await paymentClient.pay(requirement);
     try {
       response = await fetch(new URL(manifest.endpoint.path, provider.baseUrl), {
         method: manifest.endpoint.method,
-        headers: { "content-type": "application/json", "payment-signature": JSON.stringify(proof) },
+        headers: { "content-type": "application/json", "payment-signature": encodeX402(proof) },
         body: JSON.stringify(arguments_)
       });
     } catch { throw new Error("Unable to retry the selected provider with payment."); }
   }
   if (response.status === 402) {
-    const body: unknown = await response.json();
-    const requirement = isRecord(body) && isPaymentRequirement(body.paymentRequired) ? body.paymentRequired : undefined;
-    if (!requirement) throw new Error("Selected provider returned an invalid payment requirement.");
+    const requirement = paymentRequirement(response);
     return { status: "payment_required", tool: capability, providerId: provider.id, paymentRequired: requirement, routing };
   }
   if (!response.ok) throw new Error(`Selected provider returned HTTP ${response.status}.`);
+  if (provider.baseUrl && provider.manifests.some((item) => item.capability.id === capability && item.payment)) {
+    const rawSettlement = response.headers.get("payment-response");
+    if (!rawSettlement) throw new Error("Paid provider omitted PAYMENT-RESPONSE.");
+    const settlement = decodeX402(rawSettlement) as Record<string, unknown>;
+    if (settlement.success !== true || settlement.network !== "eip155:84532" || typeof settlement.transaction !== "string") {
+      throw new Error("Selected provider returned an invalid x402 settlement response.");
+    }
+  }
   const output: unknown = await response.json();
   if (!isRecord(output)) {
     throw new Error("Selected provider returned an invalid tool result.");

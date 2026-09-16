@@ -1,22 +1,7 @@
 /** Transport-independent payment contracts. Implementations may be simulated or real. */
-export interface PaymentRequirement {
-  protocol: "x402";
-  scheme: "exact";
-  amount: string;
-  asset: "USDC";
-  network: "base-sepolia";
-  providerId: string;
-  requestId: string;
-  simulation: boolean;
-}
-
-export interface PaymentProof {
-  protocol: "x402";
-  providerId: string;
-  requestId: string;
-  authorization: string;
-  simulation: true;
-}
+import type { PaymentPayload, PaymentRequirements } from "./x402.js";
+export type PaymentRequirement = PaymentRequirements;
+export type PaymentProof = PaymentPayload;
 
 export interface PaymentVerification {
   valid: boolean;
@@ -36,11 +21,9 @@ export interface PaymentVerifier {
 export class SimulatedPaymentClient implements PaymentClient {
   async pay(requirement: PaymentRequirement): Promise<PaymentProof> {
     return {
-      protocol: requirement.protocol,
-      providerId: requirement.providerId,
-      requestId: requirement.requestId,
-      authorization: `simulated-authorization:${requirement.providerId}:${requirement.requestId}:${requirement.amount}`,
-      simulation: true
+      x402Version: 2, accepted: requirement,
+      payload: { simulation: { authorization: `SIMULATED_AUTHORIZATION:${requirement.amount}`, simulation: true } },
+      extensions: {}
     };
   }
 }
@@ -48,10 +31,8 @@ export class SimulatedPaymentClient implements PaymentClient {
 /** Deterministic counterpart for test providers; not an x402 cryptographic verifier. */
 export class SimulatedPaymentVerifier implements PaymentVerifier {
   async verify(requirement: PaymentRequirement, proof: PaymentProof): Promise<PaymentVerification> {
-    const expected = `simulated-authorization:${requirement.providerId}:${requirement.requestId}:${requirement.amount}`;
-    const valid = proof.simulation === true && proof.protocol === requirement.protocol
-      && proof.providerId === requirement.providerId && proof.requestId === requirement.requestId
-      && proof.authorization === expected;
+    const valid = proof.x402Version === 2 && proof.accepted.amount === requirement.amount
+      && (proof.payload.simulation as Record<string, unknown> | undefined)?.authorization === `SIMULATED_AUTHORIZATION:${requirement.amount}`;
     return { valid, status: valid ? "simulated_settled" : "rejected", simulation: true };
   }
 }
