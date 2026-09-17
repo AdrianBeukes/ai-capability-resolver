@@ -1,0 +1,15 @@
+import { qualifyCapability } from "./capability-qualification.js";
+const id={capabilityId:"web.search",providerId:"synthetic-fixture",resourceId:"fixture://web-search"};
+const semantic=(status:"matched"|"rejected")=>({capabilityId:"web.search" as const,resourceId:id.resourceId,status,confidence:90,evidence:[],missingEvidence:[],rejectionReasons:[]});
+const schema={status:"compatible" as const,inputMappings:[],outputMappings:[],transformations:[],evidence:[],missingRequirements:[],incompatibilities:[],adapterPlan:{capabilityId:"web.search" as const,resourceId:id.resourceId,input:{mappings:[],defaults:[],transformations:[]},output:{mappings:[],transformations:[]},unsupportedCanonicalFields:[],unusedNativeFields:[]}};
+const state=(external=false)=>({...id,facts:{externalCanonicalSuccessObserved:external,externalCanonicalIncompatibleObserved:false},provenance:{observedCount:external?1:0,observedAt:[]}} as any);
+const evidence=(status:"sufficient"|"insufficient")=>({status,evidenceReference:id} as any); const acceptance=(status:"ACCEPTED"|"REJECTED"|"NOT_EVALUATED")=>({status,evidenceReference:id} as any);
+const show=(label:string,input:object,requirements:object)=>console.log(label,qualifyCapability({...id,...input},requirements));
+console.log("Phase 11D capability qualification (offline SYNTHETIC EXTERNAL TEST DATA only)");
+show("A. QUALIFIED",{semanticClassification:semantic("matched"),schemaCompatibility:schema,capabilityEvidenceState:state(true),operationalEvidenceAssessment:evidence("sufficient"),operationalAcceptanceAssessment:acceptance("ACCEPTED")},{requireSemanticMatch:true,requireSchemaCompatibility:true,requireAdapterPlan:true,requireExternalCanonicalSuccess:true,requireOperationalEvidence:true,requireOperationalAcceptance:true});
+show("B. NOT_ESTABLISHED",{operationalEvidenceAssessment:evidence("insufficient"),operationalAcceptanceAssessment:acceptance("NOT_EVALUATED")},{requireOperationalEvidence:true,requireOperationalAcceptance:true});
+show("C. NOT_QUALIFIED",{operationalEvidenceAssessment:evidence("sufficient"),operationalAcceptanceAssessment:acceptance("REJECTED")},{requireOperationalAcceptance:true});
+show("D. FAILURE + MISSING",{semanticClassification:semantic("rejected"),operationalEvidenceAssessment:evidence("insufficient")},{requireSemanticMatch:true,requireOperationalEvidence:true});
+show("E. SIMULATION IS NOT EXTERNAL",{capabilityEvidenceState:state(false)},{requireExternalCanonicalSuccess:true});
+show("F1. minimal policy",{semanticClassification:semantic("matched"),schemaCompatibility:schema,operationalEvidenceAssessment:evidence("sufficient"),operationalAcceptanceAssessment:acceptance("NOT_EVALUATED")},{requireSemanticMatch:true,requireSchemaCompatibility:true});
+show("F2. stricter policy",{semanticClassification:semantic("matched"),schemaCompatibility:schema,operationalEvidenceAssessment:evidence("sufficient"),operationalAcceptanceAssessment:acceptance("NOT_EVALUATED")},{requireSemanticMatch:true,requireSchemaCompatibility:true,requireOperationalAcceptance:true});

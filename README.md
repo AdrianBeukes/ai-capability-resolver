@@ -147,6 +147,22 @@ Acceptance is caller-specific: the same evidence can be accepted by one caller a
 npm run demonstrate:operational-acceptance
 ```
 
+## Phase 11D: evidence-backed capability qualification
+
+Phase 11D adds a pure, caller-defined aggregation layer over existing semantic classification, schema compatibility/adapter planning, observed capability state, operational evidence assessment, and operational acceptance. **Qualification** answers whether the available evidence currently establishes every dimension the caller explicitly requested for one capability/provider/resource; it performs no discovery, provider call, ledger mutation, payment, routing, ranking, or selection.
+
+Its three outcomes are deliberately distinct: `NOT_ESTABLISHED` means the requested full decision cannot yet be established; `NOT_QUALIFIED` means every requested dimension is established but at least one failed; `QUALIFIED` means every requested dimension is established and passed. `NOT_ESTABLISHED != NOT_QUALIFIED`. Missing evidence takes precedence over failure for the overall result, while `missingEvidence` and `failedRequirements` preserve both facts independently.
+
+Supported dimensions are semantic match, advertised schema compatibility, deterministic adapter plan (including a valid identity plan), external canonical success, operational evidence sufficiency, and operational acceptance. Simulated canonical success and quote-only evidence never establish external canonical success. Operational-evidence insufficiency and `NOT_EVALUATED` acceptance are missing evidence, not failures. Known conflicting identities are conservatively refused; where an older evidence type has no identity field, qualification preserves that model's uncertainty rather than fabricating one. Contradictory supplied upstream snapshots are conservatively `NOT_ESTABLISHED`. Every result uses canonical dimension/reason ordering and immutable compact identity, requirement, and source-reference provenance.
+
+`QUALIFIED` is caller-defined and is not universally reliable, trusted, transaction authorized, payment authorized, routing eligible, selected, or the best provider. `CapabilityEvidenceState.reliability` remains `unknown`; Phase 10E eligibility, resolver, ranking, policy, and payment behavior are unchanged.
+
+Run the offline synthetic-fixture demonstration with:
+
+```bash
+npm run demonstrate:capability-qualification
+```
+
 # Phase 9A: read-only external x402 discovery
 
 Phase 9A adds a deliberately separate ingestion path:

@@ -20,6 +20,7 @@
     ,"demonstrate:observation-ledger": "tsx src/demonstrate-observation-ledger.ts"
     ,"demonstrate:operational-evidence": "tsx src/demonstrate-operational-evidence.ts"
     ,"demonstrate:operational-acceptance": "tsx src/demonstrate-operational-acceptance.ts"
+    ,"demonstrate:capability-qualification": "tsx src/demonstrate-capability-qualification.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
