@@ -1,0 +1,11 @@
+import { authorizeTransaction, type TransactionAuthorizationPolicy, type TransactionProposal } from "./transaction-authorization.js";
+const proposal=(amount="20000"):TransactionProposal=>({capabilityId:"web-search",providerId:"demo-provider",resourceId:"search",invocation:{method:"GET",resource:"/search"},payment:{status:"REQUIRED",requirement:{scheme:"exact",network:"eip155:84532",asset:"test-asset",atomicAmount:amount,payTo:"test-payee"}}});
+const policy:TransactionAuthorizationPolicy={allowPaid:true,allowedMethods:["GET"],allowedPaymentSchemes:["exact"],allowedNetworks:["eip155:84532"],allowedAssets:["test-asset"],maximumPayment:{network:"eip155:84532",asset:"test-asset",atomicAmount:"20000"},allowedPayTo:["test-payee"]};
+const show=(name:string,p:TransactionProposal,rule:TransactionAuthorizationPolicy)=>{const r=authorizeTransaction(p,rule);const wording=r.status==="AUTHORIZED"?"AUTHORIZED UNDER POLICY":r.status==="NOT_AUTHORIZED"?"NOT AUTHORIZED UNDER POLICY":"AUTHORIZATION NOT ESTABLISHED";console.log(`${name}: ${wording}`,r.failedRequirements.map(x=>x.reasonCode),r.missingFacts.map(x=>x.reasonCode));};
+show("A. FREE AUTHORIZED",{...proposal(),payment:{status:"FREE"}},{allowFree:true,allowedMethods:["GET"]});
+show("B. PAID AUTHORIZED",proposal(),policy);
+show("C. PAID ABOVE MAXIMUM",proposal("20001"),policy);
+const missing=proposal(); delete (missing.payment.requirement as {asset?:string}).asset; show("D. PAYMENT FACT MISSING",missing,policy);
+const failure={...proposal(),invocation:{method:"POST",resource:"/search"},payment:{status:"REQUIRED" as const,requirement:{scheme:"exact",network:"eip155:84532",atomicAmount:"20000",payTo:"test-payee"}}}; show("E. FAILURE + MISSING",failure,policy);
+show("F. LARGE ATOMIC AMOUNT",proposal("900719925474099312345"),{...policy,maximumPayment:{network:"eip155:84532",asset:"test-asset",atomicAmount:"900719925474099312345"}});
+show("G. SAME TRANSACTION, CALLER A",proposal(),policy); show("G. SAME TRANSACTION, CALLER B",proposal(),{allowPaid:false});
