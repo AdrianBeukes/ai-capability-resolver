@@ -73,3 +73,43 @@ npm run dev     # start in watch mode
 npm run build   # compile TypeScript to dist/
 npm test        # run all unit tests
 ```
+# Phase 9A: read-only external x402 discovery
+
+Phase 9A adds a deliberately separate ingestion path:
+
+`x402 Bazaar -> read-only discovery -> runtime validation -> protocol-neutral normalization -> candidate resources`
+
+`X402BazaarDiscoverySource` only performs paginated `GET {facilitator}/discovery/resources` requests. Configure a compatible facilitator with `X402_BAZAAR_URL` and run `npm run discover:x402`. It prints normalized records and rejected-record diagnostics; it does not invoke a discovered resource, authorize payment, create a payment payload, send `PAYMENT-SIGNATURE`, verify/settle, or move funds. `X402_DISCOVERY_MAX_PAGES` is an explicit demo-only operational bound for very large catalogs; omitting it walks the complete catalog.
+
+The V2 core adapter validates per-resource `resource`, `type`, `x402Version: 2`, `accepts`, and `lastUpdated`, plus the consumed payment fields: `scheme`, `network`, atomic-string `amount`, `asset`, `payTo`, and `maxTimeoutSeconds`. It follows V2 `pagination.limit`, `pagination.offset`, and `pagination.total`. `extensions` (including Bazaar schemas/tool metadata), provider `metadata`, and payment `extra` are optional extension/facilitator data and are retained only where useful for future classification.
+
+External records become `NormalizedCapabilityProvider`, not the existing ranked provider model: their resource identity and facilitator provenance are retained, and no canonical resolver capability is assumed. Provider/registry claims (description, tool name, schemas, price options) are **advertised**. Reliability and latency are **observed** only when independently measured; Phase 9A leaves both absent and never fabricates a USD price from atomic token amounts.
+
+Phase 9B adds the official MCP Registry as a second, metadata-only source:
+
+```text
+             External Discovery
+                     |
+         +-----------+-----------+
+         |                       |
+    x402 Bazaar              MCP Registry
+         |                       |
+         +-----------+-----------+
+                     |
+                     v
+           Normalized external resource model
+```
+
+`npm run discover:mcp` uses read-only `GET /v0.1/servers` with opaque cursor pagination (`MCP_REGISTRY_URL` and `MCP_REGISTRY_MAX_PAGES` are configurable). It does not install packages, run or connect to MCP servers, call tools, authorize or pay. Registry economics remain **unknown**, never free; server metadata is advertised, not observed evidence; capability/tool mapping is intentionally deferred.
+
+Phase 9C adds deterministic semantic classification: discovery → normalization → `web.search` candidate. Classification is not provider quality, economic ranking, or execution success. General public-web evidence plus compatible query and URL-result schemas can match; social, directory, documentation, trends, package, and other scoped search claims are not automatically web search. `npm run classify:web-search` remains read-only.
+
+Phase 9D permits only explicit `npm run inspect:mcp -- --server exact/name` inspection (maximum three names): Registry metadata → server-level candidate → safe `tools/list` → per-tool classification. Inspection is not execution: `tools/call` is prohibited; returned tool metadata remains advertised capability evidence, never performance evidence.
+
+## Phase 9 milestone
+
+Phase 9 proved cross-ecosystem, read-only discovery for x402 Bazaar and the official MCP Registry, followed by protocol-neutral normalization and conservative `web.search` candidate classification. The bounded live classification experiment inspected 128 records: 0 matched, 5 possible, and 123 rejected. This is intentional evidence of classifier conservatism, not provider quality.
+
+The explicit Goji MCP experiment resolved `agency.goji/goji@1.0.1` as active, found an advertised remote, and observed only public DNS answers. The safe connection attempt was unreachable before initialization, so `tools/list` was not reached. Listed/discovered does not imply inspectable; inspectable does not imply a working or high-quality provider. Phase 9 does not measure execution success, quality, reliability, latency, or provider performance.
+
+The network guard validates every DNS answer before connecting, disables redirects, and fails closed on unsafe or unresolved destinations. A remaining limitation is DNS TOCTOU/rebinding: the HTTP client can independently resolve a hostname after validation, so this implementation does not pin the TCP connection to a previously validated address. Address pinning would require a more substantial transport change and is intentionally deferred.

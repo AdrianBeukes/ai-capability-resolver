@@ -8,7 +8,11 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p provider-demo\\tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p agent-demo\\tsconfig.json && .\\node_modules\\.bin\\tsc.cmd -p facilitator-demo\\tsconfig.json",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "tsx --test test/**/*.test.ts",
+    "discover:x402": "tsx src/discover-x402.ts",
+    "discover:mcp": "tsx src/discover-mcp.ts"
+    ,"classify:web-search": "tsx src/classify-web-search.ts"
+    ,"inspect:mcp": "tsx src/inspect-mcp.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

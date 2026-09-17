@@ -1,0 +1,28 @@
+import type { NormalizedCapabilityProvider } from "./external-discovery.js";
+
+export interface CanonicalCapability { readonly id: "web.search"; readonly version: "1"; readonly description: string; readonly input: { query: "string"; limit?: "number" }; readonly output: { results: { url: "string"; title?: "string"; snippet?: "string" }[] }; }
+export const WEB_SEARCH: CanonicalCapability = { id: "web.search", version: "1", description: "Search the public web for information relevant to a textual query and return results.", input: { query: "string", limit: "number" }, output: { results: [{ url: "string", title: "string", snippet: "string" }] } };
+export type MatchStatus = "matched" | "possible" | "rejected";
+export interface MatchEvidence { readonly category: "advertised_description" | "advertised_name" | "advertised_input_schema" | "advertised_output_schema" | "resource_path" | "mcp_server_description" | "mcp_tool_name" | "mcp_tool_description" | "mcp_tool_input_schema" | "mcp_tool_output_schema"; readonly summary: string; readonly weight: number; }
+export interface CapabilityMatch { readonly resourceId: string; readonly capabilityId: "web.search"; readonly status: MatchStatus; readonly confidence: number; readonly evidence: readonly MatchEvidence[]; readonly missingEvidence: readonly string[]; readonly rejectionReasons: readonly string[]; }
+const scoped = /twitter|tweet|\bx\b|business|directory|maps|documentation|docs|google trends|trend|package|internal|database|site-specific/i;
+const publicWeb = /\b(public )?web\b|internet|serp|search the web|web retrieval|neural search across the web/i;
+function text(value: unknown): string { return JSON.stringify(value ?? "").toLowerCase(); }
+export function classifyWebSearch(resource: NormalizedCapabilityProvider): CapabilityMatch {
+ const description = resource.advertised.description ?? ""; const identity = `${resource.externalResourceId} ${resource.mcp?.title ?? ""}`; const input = text(resource.advertised.inputSchema); const output = text(resource.advertised.outputSchema); const evidence: MatchEvidence[]=[]; const rejectionReasons: string[]=[];
+ if (publicWeb.test(description)) evidence.push({category: resource.mcp ? "mcp_server_description" : "advertised_description",summary:"Explicit public-web search/retrieval claim",weight:45});
+ if (/search/.test(identity)) evidence.push({category:"resource_path",summary:"Identity/path advertises search",weight:10});
+ if (/query/.test(input) && /(string|text)/.test(input)) evidence.push({category:"advertised_input_schema",summary:"Schema accepts textual query",weight:25});
+ if (/(url|urls)/.test(output) && /(result|results)/.test(output)) evidence.push({category:"advertised_output_schema",summary:"Schema describes URL-bearing results",weight:25});
+ const scopeText=`${description} ${identity}`; if (scoped.test(scopeText)) rejectionReasons.push("Advertised scope is not general public-web search.");
+ const score=Math.max(0,evidence.reduce((n,e)=>n+e.weight,0)-(rejectionReasons.length?70:0));
+ const missing=[...(evidence.some(e=>e.category==="advertised_input_schema")?[]:["compatible textual-query input schema"]),...(evidence.some(e=>e.category==="advertised_output_schema")?[]:["URL-bearing search-result output schema"]),"observed execution evidence"];
+ const status: MatchStatus=rejectionReasons.length ? "rejected" : score>=85 ? "matched" : score>=45 ? "possible" : "rejected";
+ if (status==="rejected" && !rejectionReasons.length) rejectionReasons.push("Insufficient evidence of general public-web search semantics.");
+ return {resourceId:resource.externalResourceId,capabilityId:"web.search",status,confidence:score,evidence,missingEvidence:missing,rejectionReasons};
+}
+export function classifyWebSearchResources(resources: readonly NormalizedCapabilityProvider[]): CapabilityMatch[] { return resources.map(classifyWebSearch); }
+export function classifyMCPTool(resourceId:string, tool:{nativeName:string;description?:string;inputSchema:Record<string,unknown>;outputSchema?:Record<string,unknown>}): CapabilityMatch {
+ const description=tool.description??"", identity=tool.nativeName,input=text(tool.inputSchema),output=text(tool.outputSchema),evidence:MatchEvidence[]=[],rejectionReasons:string[]=[];
+ if(publicWeb.test(description))evidence.push({category:"mcp_tool_description",summary:"Live tools/list describes general public-web search",weight:55});if(/search/.test(identity))evidence.push({category:"mcp_tool_name",summary:"Live tool name advertises search",weight:10});if(/query/.test(input)&&/(string|text)/.test(input))evidence.push({category:"mcp_tool_input_schema",summary:"Live tool schema accepts textual query",weight:30});if(/(url|urls)/.test(output)&&/(result|results)/.test(output))evidence.push({category:"mcp_tool_output_schema",summary:"Live tool schema describes URL-bearing results",weight:20});if(scoped.test(`${description} ${identity}`))rejectionReasons.push("Live tool metadata explicitly scopes search away from the public web.");const score=Math.max(0,evidence.reduce((n,e)=>n+e.weight,0)-(rejectionReasons.length?70:0));const status:MatchStatus=rejectionReasons.length?"rejected":score>=85?"matched":score>=45?"possible":"rejected";if(status==="rejected"&&!rejectionReasons.length)rejectionReasons.push("Insufficient live tool evidence of general public-web search semantics.");return{resourceId:`${resourceId}#${tool.nativeName}`,capabilityId:"web.search",status,confidence:score,evidence,missingEvidence:[...(evidence.some(e=>e.category==="mcp_tool_input_schema")?[]:["textual-query input schema"]),...(evidence.some(e=>e.category==="mcp_tool_output_schema")?[]:["URL-result output schema"]),"observed execution evidence"],rejectionReasons};
+}
