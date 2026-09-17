@@ -117,6 +117,20 @@ A **measurement** is a deterministic count, literal observed ratio, or transport
 ```bash
 npm run demonstrate:observation-ledger
 ```
+
+## Phase 11B: operational evidence assessment
+
+Phase 11B adds a pure, offline assessment after an evidence window and its Phase 11A measurements. **Measurement** says what happened in the selected window. **Sufficiency** says whether that window meets caller-defined quantities, comparability, and temporal requirements. **Freshness** is evaluated only relative to the explicit `asOf` instant, never the machine clock: the newest-observation limit constrains the latest selected observation, while the optional oldest-observation limit constrains every selected observation. **Span** is `latestObservedAt - earliestObservedAt`; it is only caller-defined coverage, not an interpretation of provider behavior.
+
+`OperationalEvidenceRequirement` can require raw execution/canonical/latency counts, success-evidence presence, external-mode provenance, a single known contract fingerprint, freshness, oldest age, and span. `OperationalEvidenceAssessment` returns deterministic status, stable machine-readable reason codes, structured missing evidence, a literal evidence summary, and a requirement snapshot. Future-dated selected observations relative to `asOf` fail conservatively and do not generate usable negative ages. Empty windows have no timestamps, ages, or span.
+
+This layer deliberately has no success-ratio thresholds and no reliability, quality, trust, rating, or ranking result. Same ratio != same evidence quantity; many old samples != fresh evidence; many samples over seconds != broad temporal evidence; old-contract evidence != new-contract evidence; simulation != external evidence; quote success != execution success; and sufficient evidence != reliable provider. **Performance acceptance**—whether measurements meet caller thresholds—and **reliability interpretation**—a broader operational conclusion—are not Phase 11B and are not implemented yet.
+
+`CapabilityEvidenceState.reliability` remains `unknown`. Phase 10E eligibility, resolver behavior, ranking, and policy remain unchanged. Run the offline-only demonstration with:
+
+```bash
+npm run demonstrate:operational-evidence
+```
 # Phase 9A: read-only external x402 discovery
 
 Phase 9A adds a deliberately separate ingestion path:
