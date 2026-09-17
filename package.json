@@ -13,6 +13,7 @@
     "discover:mcp": "tsx src/discover-mcp.ts"
     ,"classify:web-search": "tsx src/classify-web-search.ts"
     ,"inspect:mcp": "tsx src/inspect-mcp.ts"
+    ,"analyze:web-search-schema": "tsx src/analyze-web-search-schema.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
