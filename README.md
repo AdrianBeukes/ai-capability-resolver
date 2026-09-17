@@ -163,6 +163,20 @@ Run the offline synthetic-fixture demonstration with:
 npm run demonstrate:capability-qualification
 ```
 
+## Phase 11E: candidate-set qualification and evidence-gap aggregation
+
+Candidate-set qualification independently applies the same caller requirement to every candidate in one supplied canonical-capability set, then deterministically partitions them into `QUALIFIED`, `NOT_QUALIFIED`, and `NOT_ESTABLISHED`. Candidate identity is canonical `capabilityId`, `providerId`, and explicit `resourceId` where supplied; duplicate identities reject the complete input rather than being merged. Same-provider resources remain independent when their resource identity is known.
+
+Ordering is by canonical identity only, for deterministic output; it is non-preferential. Candidate aggregation is not ranking, selection, transaction authorization, routing eligibility, provider recommendation, or reliability interpretation. Qualified candidates remain unordered peers. Gap counts are not priority scores, and failure counts are not provider scores.
+
+Evidence-gap aggregates descriptively count unique candidates with each missing required dimension/reason in this supplied set. A candidate can appear in several gap aggregates because it can lack several independent facts; these counts are not priority scores. Established-failure aggregates likewise describe known failed required dimensions, including a known failure held by an overall `NOT_ESTABLISHED` candidate. Evidence is never pooled between candidates or resources.
+
+`CapabilityEvidenceState.reliability` remains `unknown`; Phase 10E eligibility, resolver, ranking, policy, payment, and execution behavior remain unchanged. Run the offline synthetic-fixture demonstration with:
+
+```bash
+npm run demonstrate:candidate-qualification-set
+```
+
 # Phase 9A: read-only external x402 discovery
 
 Phase 9A adds a deliberately separate ingestion path:

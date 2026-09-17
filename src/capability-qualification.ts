@@ -59,7 +59,8 @@ const ORDER: readonly QualificationDimension[] = ["SEMANTICS", "SCHEMA", "ADAPTE
 const requirementKey: Record<QualificationDimension, keyof CapabilityQualificationRequirement> = {
   SEMANTICS:"requireSemanticMatch", SCHEMA:"requireSchemaCompatibility", ADAPTER:"requireAdapterPlan", EXTERNAL_CANONICAL_SUCCESS:"requireExternalCanonicalSuccess", OPERATIONAL_EVIDENCE:"requireOperationalEvidence", OPERATIONAL_ACCEPTANCE:"requireOperationalAcceptance"
 };
-function validate(requirements: CapabilityQualificationRequirement): void {
+/** Shared validation for callers that need to validate a requirement even with no candidates. */
+export function validateCapabilityQualificationRequirement(requirements: CapabilityQualificationRequirement): void {
   if (!requirements || typeof requirements !== "object" || Array.isArray(requirements)) throw new Error("qualification requirements must be an object");
   for (const key of Object.values(requirementKey)) if (requirements[key] !== undefined && typeof requirements[key] !== "boolean") throw new Error(`${key} must be boolean`);
   if (!Object.keys(requirements).some(key => (requirements as Record<string, unknown>)[key] === true)) throw new Error("NO_QUALIFICATION_REQUIREMENTS");
@@ -78,7 +79,7 @@ function identityFailure(dimension: QualificationDimension): QualificationDimens
 /** Deterministic reduction: missing required evidence takes precedence over established failures. */
 export function qualifyCapability(input: CapabilityQualificationInput, requirements: CapabilityQualificationRequirement): CapabilityQualificationResult {
   if (!input || !input.capabilityId || !input.providerId) throw new Error("capabilityId and providerId are required");
-  validate(requirements);
+  validateCapabilityQualificationRequirement(requirements);
   const dims: QualificationDimensionAssessment[]=[];
   for (const dimension of ORDER) {
     if (!requirements[requirementKey[dimension]]) { dims.push(assessment(dimension,"NOT_REQUIRED")); continue; }
