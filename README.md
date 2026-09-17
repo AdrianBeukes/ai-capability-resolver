@@ -73,6 +73,22 @@ npm run dev     # start in watch mode
 npm run build   # compile TypeScript to dist/
 npm test        # run all unit tests
 ```
+
+## Phase 10D: observed capability evidence (offline simulation)
+
+Phase 10D separates four evidence classes: advertised capability evidence, observed transport evidence, observed payment evidence, and observed capability evidence. An observed capability record retains its provider/resource identity, capability ID, timestamp, and execution mode. The demonstration uses only deterministic local fixtures and labels every execution as `simulated`.
+
+An **advertised contract** is what a provider declares. An **observed response** is what one execution produced. An **observed mapping** is a deterministic mapping that worked for that particular response shape; it is not an advertised `AdapterPlan`. **Canonical validation** checks whether the mapped response satisfies the canonical `web.search` output (a result collection with HTTP(S) URL-bearing items). Semantic scope remains a gate: structurally perfect Twitter/X output is not general public-web search.
+
+Response-shape capture is bounded by depth, object properties, array samples, string lengths, and diagnostic count. It retains shape rather than arbitrary payloads and redacts obvious secret-like text. Empty arrays establish container evidence only: they do not establish an item URL shape. Mixed items are conservatively non-success, and `javascript:`, `data:`, `file:`, and malformed URLs are rejected without fetching them.
+
+```bash
+npm run demonstrate:observed-capability
+```
+
+The command prints direct, adapted, incompatible, and semantically scoped fixture outcomes, alongside unchanged advertised classification/adapter-plan context. It makes no network, payment, wallet, facilitator, or MCP calls.
+
+Reliability is **not yet established**: one successful observation != declared schema; one successful observation != reliability; one successful observation != future compatibility guarantee; and simulated observation != external provider evidence. Multiple `ObservedCapabilityEvidence` records may coexist later, but Phase 10D performs no scoring, ranking, routing change, or learned-adapter promotion.
 # Phase 9A: read-only external x402 discovery
 
 Phase 9A adds a deliberately separate ingestion path:

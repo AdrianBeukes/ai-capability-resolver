@@ -15,6 +15,7 @@
     ,"inspect:mcp": "tsx src/inspect-mcp.ts"
     ,"analyze:web-search-schema": "tsx src/analyze-web-search-schema.ts"
     ,"verify:x402-quotes": "tsx src/verify-x402-quotes.ts"
+    ,"demonstrate:observed-capability": "tsx src/demonstrate-observed-capability.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
