@@ -1,0 +1,10 @@
+import { formAdmissibleCandidateSet } from "./admissible-candidate-set.js";
+import { qualifyCapability } from "./capability-qualification.js";
+import { authorizeTransaction } from "./transaction-authorization.js";
+const cap="web.search";
+const q=(p:string,r?:string,ok=true)=>qualifyCapability({capabilityId:cap,providerId:p,...(r===undefined?{}:{resourceId:r}),semanticClassification:{capabilityId:cap,resourceId:r??"resource-unspecified",status:ok?"matched":"rejected",confidence:ok?100:0,evidence:[],missingEvidence:[],rejectionReasons:[]}}, {requireSemanticMatch:true});
+const a=(p:string,r?:string,mode:"yes"|"no"|"unknown"="yes")=>authorizeTransaction({capabilityId:cap,providerId:p,...(r===undefined?{}:{resourceId:r}),invocation:{method:"GET"},payment:{status:"FREE"}},mode==="yes"?{allowFree:true}:mode==="no"?{allowFree:false}:{});
+const show=(title:string,qualifications:ReturnType<typeof q>[],authorizations:ReturnType<typeof a>[])=>{const x=formAdmissibleCandidateSet({capabilityId:cap,qualifications,authorizations});console.log(`\n${title}`);console.log("QUALIFICATION RESULTS",qualifications.length);console.log("AUTHORIZATION RESULTS",authorizations.length);console.log("MATCHED PAIRS",x.matchedPairCount);console.log("ADMISSIBLE",x.admissible.map(y=>y.identity));console.log("NOT ADMISSIBLE",x.notAdmissible.map(y=>y.identity));console.log("NOT ESTABLISHED",x.notEstablished.map(y=>y.identity));console.log("UNMATCHED QUALIFICATIONS",x.unmatchedQualifications.map(y=>[y.identity,y.reasonCode]));console.log("UNMATCHED AUTHORIZATIONS",x.unmatchedAuthorizations.map(y=>[y.identity,y.reasonCode]));console.log("JOIN DIAGNOSTICS",x.joinDiagnostics);};
+show("SUPPLIED CANDIDATE POPULATIONS",[q("A","x"),q("B","x"),q("C","x",false),q("D","x"),q("E","x")],[a("A","x"),a("B","x","no"),a("C","x"),a("D","x","unknown"),a("F","x")]);
+show("EXACT BEFORE PARTIAL",[q("G","x"),q("G","y")],[a("G","x"),a("G")]);
+show("AMBIGUOUS PARTIAL IDENTITY",[q("H","x"),q("H","y")],[a("H")]);

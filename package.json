@@ -24,6 +24,7 @@
     ,"demonstrate:candidate-qualification-set": "tsx src/demonstrate-candidate-qualification-set.ts"
     ,"demonstrate:transaction-authorization": "tsx src/demonstrate-transaction-authorization.ts"
     ,"demonstrate:candidate-admissibility": "tsx src/demonstrate-candidate-admissibility.ts"
+    ,"demonstrate:admissible-candidate-set": "tsx src/demonstrate-admissible-candidate-set.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

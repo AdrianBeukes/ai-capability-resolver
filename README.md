@@ -261,4 +261,12 @@ An omitted policy dimension is `NOT_REQUIRED`, not a hidden rejection; however, 
 
 Payment ceilings use strict non-negative decimal atomic integers and `BigInt`, only when the proposal network and asset exactly match the policy ceiling. There is no currency conversion. Authorization is caller-specific, so the same proposal can be authorized for one caller and rejected for another. Snapshots and result structures are detached and frozen.
 
+# Phase 12B: admissible candidate-set formation
+
+Admissible candidate-set formation is a deterministic identity join between the **supplied candidate populations** of qualification and authorization results, followed by independent Phase 12A composition for each matched pair. It is not ranking, selection, execution, payment, or evidence collection.
+
+Exact joins require the same structured capability, provider, and resource identity. Omitted and explicit-empty resources remain distinct. After exact joins, an optional-resource partial join is allowed only when exactly one remaining qualification and one remaining authorization are compatible for that capability/provider. When multiple partial pairings are possible, the identity is ambiguous and no arbitrary pair is chosen. A qualification without a unique authorization is retained as an unmatched qualification; the reverse is retained as an unmatched authorization. Missing upstream decisions are never fabricated.
+
+Duplicate exact identities, missing provider identity, and known capability mismatches reject the full supplied set atomically. Matched Phase 12A results are partitioned into admissible, not admissible, and admissibility not established; only `ADMISSIBLE` results enter the admissible collection. Results, unmatched items, and diagnostics use identity-only canonical ordering, are detached and frozen, and preserve Phase 12A provenance.
+
 `AUTHORIZED` does not mean executed, paid, signed, settled, selected, routing eligible, or provider reliable. This phase performs no requests, payment signing, wallet work, settlement, or capability qualification. It retains only supplied compact proposal provenance, never promotes advertised payment metadata into an observed quote, and does not alter the existing Phase 7 provider-routing policy.
