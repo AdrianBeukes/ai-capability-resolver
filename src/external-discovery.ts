@@ -51,6 +51,8 @@ export interface NormalizedCapabilityProvider {
   };
   /** Phase 9A intentionally has no independently measured quality data. */
   readonly observed: { readonly reliability?: undefined; readonly latencyMs?: undefined };
+  /** x402/Bazaar-specific invocation provenance. It is not a cross-protocol capability claim. */
+  readonly x402?: { readonly invocation?: { readonly type: "http"; readonly method: "GET" | "POST"; readonly placement: "queryParams" | "jsonBody"; readonly parameters: Readonly<Record<string, unknown>>; }; readonly bazaarSchema?: Readonly<Record<string, unknown>>; readonly outputMetadata?: Readonly<Record<string, unknown>> };
   /** Protocol-specific information kept alongside the common envelope. */
   readonly mcp?: { readonly serverName: string; readonly version: string; readonly title?: string; readonly status?: string; readonly repository?: Readonly<Record<string, unknown>>; readonly packages: readonly Readonly<Record<string, unknown>>[]; readonly remotes: readonly Readonly<Record<string, unknown>>[]; readonly registryMeta?: Readonly<Record<string, unknown>> };
 }
@@ -78,7 +80,7 @@ function advertisedMetadata(raw: JsonRecord): NormalizedCapabilityProvider["adve
   const candidate = bazaar ?? metadata;
   if (!candidate) return {};
   const info = isRecord(candidate.info) ? candidate.info : undefined;
-  const inputSchema = isRecord(candidate.inputSchema) ? candidate.inputSchema : isRecord(candidate.input) && isRecord(candidate.input.schema) ? candidate.input.schema : isRecord(info?.input) ? info.input : undefined;
+  const inputSchema = isRecord(candidate.inputSchema) ? candidate.inputSchema : isRecord(candidate.input) && isRecord(candidate.input.schema) ? candidate.input.schema : isRecord(info?.inputSchema) ? info.inputSchema : isRecord(info?.input) && info.input.type!=="http" ? info.input : undefined;
   const outputSchema = isRecord(candidate.outputSchema) ? candidate.outputSchema : isRecord(candidate.output) && isRecord(candidate.output.schema) ? candidate.output.schema : isRecord(info?.output) ? info.output : undefined;
   return {
     ...(nonEmptyString(raw.description) ? { description: raw.description } : nonEmptyString(candidate.description) ? { description: candidate.description } : nonEmptyString(metadata?.description) ? { description: metadata.description } : {}),
@@ -86,6 +88,17 @@ function advertisedMetadata(raw: JsonRecord): NormalizedCapabilityProvider["adve
     ...(inputSchema ? { inputSchema } : {}), ...(outputSchema ? { outputSchema } : {}),
     ...(isRecord(raw.extensions) ? { extensions: raw.extensions } : {})
   };
+}
+
+function bazaarInvocation(raw: JsonRecord): NormalizedCapabilityProvider["x402"] | undefined {
+  const bazaar=isRecord(raw.extensions)&&isRecord(raw.extensions.bazaar)?raw.extensions.bazaar:undefined;
+  const input=bazaar&&isRecord(bazaar.info)&&isRecord(bazaar.info.input)?bazaar.info.input:undefined;
+  if(!input || input.type!=="http" || typeof input.method!=="string") return undefined;
+  const method=input.method.toUpperCase();
+  if(method!=="GET"&&method!=="POST") return undefined;
+  if(method==="GET"&&isRecord(input.queryParams)) return {invocation:{type:"http",method,placement:"queryParams",parameters:input.queryParams}};
+  if(method==="POST"&&input.bodyType==="json"&&isRecord(input.body)) return {invocation:{type:"http",method,placement:"jsonBody",parameters:input.body}};
+  return undefined;
 }
 
 function paymentOption(value: unknown): NormalizedPaymentOption | undefined {
@@ -108,9 +121,10 @@ export function normalizeX402DiscoveredResource(raw: unknown, sourceId: string, 
     source: { ecosystem: "x402", sourceId, discoveredAt, advertisedUpdatedAt: raw.lastUpdated },
     invocation: { protocol: "x402", resource, resourceType: raw.type },
     economics: { paymentRequired: true, options: options as NormalizedPaymentOption[] },
-    advertised: advertisedMetadata(raw), observed: {}
+    advertised: advertisedMetadata(raw), observed: {}, ...(x402Provenance(raw)?{x402:x402Provenance(raw)}:{})
   };
 }
+function x402Provenance(raw: JsonRecord): NormalizedCapabilityProvider["x402"] | undefined { const invocation=bazaarInvocation(raw)?.invocation; const bazaar=isRecord(raw.extensions)&&isRecord(raw.extensions.bazaar)?raw.extensions.bazaar:undefined; const schema=bazaar&&isRecord(bazaar.schema)?bazaar.schema:undefined; const output=bazaar&&isRecord(bazaar.info)&&isRecord(bazaar.info.output)?bazaar.info.output:undefined; return invocation||schema||output?{...(invocation?{invocation}:{}),...(schema?{bazaarSchema:schema}:{}),...(output?{outputMetadata:output}:{})}:undefined; }
 
 /** GET-only Bazaar client. It never imports payment or execution modules. */
 export class X402BazaarDiscoverySource implements CapabilityDiscoverySource {

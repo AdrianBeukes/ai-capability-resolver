@@ -52,3 +52,11 @@ test("rejects an invalid V2 page without retaining partial data", async () => {
   const source = new X402BazaarDiscoverySource({ facilitatorUrl: "https://example.test", fetchImpl: (async () => new Response(JSON.stringify({ x402Version: 2, items: [] }), { status: 200 })) as typeof fetch });
   await assert.rejects(source.discover(), /invalid V2 page shape/);
 });
+
+test("preserves Bazaar HTTP invocation provenance without treating it as a schema",()=>{
+ const get=normalizeX402DiscoveredResource({...valid,extensions:{bazaar:{info:{input:{type:"http",method:"get",queryParams:{q:"example"}},unknown:{kept:true}}}}},"x","now")!;
+ assert.deepEqual(get.x402?.invocation,{type:"http",method:"GET",placement:"queryParams",parameters:{q:"example"}});assert.equal(get.advertised.inputSchema,undefined);assert.equal((get.advertised.extensions?.bazaar as any).info.unknown.kept,true);
+ const post=normalizeX402DiscoveredResource({...valid,extensions:{bazaar:{info:{input:{type:"http",method:"POST",bodyType:"json",body:{query:"example"}}}}}},"x","now")!;
+ assert.deepEqual(post.x402?.invocation,{type:"http",method:"POST",placement:"jsonBody",parameters:{query:"example"}});
+ for(const input of [{type:"http",queryParams:{q:"x"}},{type:"http",method:"POST",body:{q:"x"}},{type:"http",method:"PUT",queryParams:{q:"x"}}])assert.equal(normalizeX402DiscoveredResource({...valid,extensions:{bazaar:{info:{input}}}},"x","now")!.x402,undefined);
+});
