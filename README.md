@@ -103,6 +103,20 @@ npm run demonstrate:observed-capability
 The command prints direct, adapted, incompatible, and semantically scoped fixture outcomes, alongside unchanged advertised classification/adapter-plan context. It makes no network, payment, wallet, facilitator, or MCP calls.
 
 Reliability is **not yet established**: one successful observation != declared schema; one successful observation != reliability; one successful observation != future compatibility guarantee; and simulated observation != external provider evidence. Multiple `ObservedCapabilityEvidence` records may coexist later, but Phase 10D performs no scoring, ranking, routing change, or learned-adapter promotion.
+
+## Phase 11A: immutable observation ledger and evidence windows
+
+An **observation** is an immutable event/fact. The in-memory **ledger** is append-only: it supports append, read, and select; duplicate observation IDs are rejected and reads are defensive copies. An **evidence window** is an explicit selection of comparable observations by capability, provider, optional resource, execution mode, optional contract/request fingerprints, and `[fromInclusive, toExclusive)` time boundaries. Its production default is `external`; simulations are selected only with `executionMode: "simulated"`.
+
+A **measurement** is a deterministic count, literal observed ratio, or transport-latency summary over a window. It is not a reliability, trust, or quality score. A quote observation is not an execution attempt: quote-only evidence can have a reached HTTP 402 and a quote match while execution attempts remain zero. Transport latency is measured separately from execution outcome; missing latency is never inferred.
+
+**Sufficiency** answers only whether caller-defined requirements are met (for example minimum execution attempts or one known contract), and does not interpret provider reliability. More samples are not automatically trustworthy. Mixed known contract fingerprints, and unknown contract fingerprints when a single known contract is required, are never silently pooled. Contract fingerprints SHA-256 canonicalized stable contract material only. Request fingerprints SHA-256 canonical request shape (field names and value types), never raw request values.
+
+`CapabilityEvidenceState.reliability` remains `unknown`; Phase 11A does not change eligibility, ranking, or routing. Run the offline fixture demonstration with:
+
+```bash
+npm run demonstrate:observation-ledger
+```
 # Phase 9A: read-only external x402 discovery
 
 Phase 9A adds a deliberately separate ingestion path:

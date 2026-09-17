@@ -17,6 +17,7 @@
     ,"verify:x402-quotes": "tsx src/verify-x402-quotes.ts"
     ,"demonstrate:observed-capability": "tsx src/demonstrate-observed-capability.ts"
     ,"demonstrate:evidence-state": "tsx src/demonstrate-evidence-state.ts"
+    ,"demonstrate:observation-ledger": "tsx src/demonstrate-observation-ledger.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
