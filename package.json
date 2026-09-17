@@ -16,6 +16,7 @@
     ,"analyze:web-search-schema": "tsx src/analyze-web-search-schema.ts"
     ,"verify:x402-quotes": "tsx src/verify-x402-quotes.ts"
     ,"demonstrate:observed-capability": "tsx src/demonstrate-observed-capability.ts"
+    ,"demonstrate:evidence-state": "tsx src/demonstrate-evidence-state.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

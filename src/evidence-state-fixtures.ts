@@ -1,0 +1,13 @@
+import type { CapabilityEvidenceInput } from "./capability-evidence-state.js";
+import type { ObservedCapabilityEvidence } from "./observed-capability.js";
+const observation=(mode:"simulated"|"external", outcome:ObservedCapabilityEvidence["outcome"], at:string):ObservedCapabilityEvidence=>({capabilityId:"web.search",providerId:"fixture",resourceId:"fixture://resource",observedAt:at,executionMode:mode,requestEvidence:{accepted:true},responseEvidence:{httpStatus:200},canonicalExtraction:{status:outcome==="canonical_success"?"success":"partial",mappings:[],missingRequiredFields:[],diagnostics:[]},canonicalValidation:{status:outcome==="canonical_success"?"valid":"invalid",diagnostics:[]},outcome});
+const base={capabilityId:"web.search",providerId:"fixture",resourceId:"fixture://resource",discovered:true as const};
+export const evidenceFixtures:Record<string,CapabilityEvidenceInput>={
+ "discovered-only":base,
+ "kadec0-like":{...base,providerId:"fixture:kadec0",semantics:"possible",invocation:{complete:true,endpointSafety:"safe",readOnly:true},requestContract:"compatible",outputContract:"unknown",payment:{applicable:true,advertised:true,observedStatus:"payment_required",comparison:{resourceId:"fixture://resource",matchedAdvertisedOption:0,endpoint:"match",paymentProtocolVersion:"match",scheme:"match",network:"match",asset:"match",amount:"match",payTo:"match",timeout:"match",discrepancies:[]}}},
+ "x402atlas-like":{...base,providerId:"fixture:x402atlas",invocation:{complete:true,endpointSafety:"safe",readOnly:true},requestContract:"compatible",payment:{applicable:true,advertised:true,observedStatus:"malformed_payment_challenge"}},
+ "stableenrich-like":{...base,providerId:"fixture:stableenrich",semantics:"possible",invocation:{complete:true,endpointSafety:"safe",readOnly:true},requestContract:"partially_compatible"},
+ "simulated-canonical-success":{...base,semantics:"matched",invocation:{complete:true,endpointSafety:"safe",readOnly:true},requestContract:"compatible",outputContract:"incompatible",observations:[observation("simulated","canonical_success","2026-09-17T00:00:00.000Z")]},
+ "external-canonical-success":{...base,semantics:"matched",invocation:{complete:true,endpointSafety:"safe",readOnly:true},requestContract:"compatible",outputContract:"compatible",observations:[observation("external","canonical_success","2026-09-17T00:00:00.000Z")]},
+ "conflicting-external-observations":{...base,semantics:"matched",invocation:{complete:true,endpointSafety:"safe",readOnly:true},requestContract:"compatible",outputContract:"compatible",observations:[observation("external","canonical_success","2026-09-17T00:00:00.000Z"),observation("external","execution_failed","2026-09-17T01:00:00.000Z")]}
+};

@@ -1,5 +1,19 @@
 # AI Capability Resolver
 
+## Phase 10E: capability evidence state and eligibility
+
+Phase 10E adds a pure, protocol-neutral layer: **evidence** is what a source advertised or an observation recorded; **state** is a deterministic summary of that immutable evidence; and **eligibility** says whether that state is sufficient for one action. Caller **policy** (including payment authorization) remains separate, and ranking is future work. Thus `eligible != best`, `eligible != reliable`, `discovered != executable`, `verified once != reliable`, and simulated success never creates production eligibility.
+
+`CapabilityEvidenceState` retains independent discovery, semantics, invocation, request/output-contract, transport, payment, execution, canonical-output, reliability, and timestamp provenance dimensions. Advertised and observed evidence are never rewritten into one another. Multiple observations retain both external success and failure facts, without rates or scores, and derivation is order independent.
+
+`EligibilityDecision` supports `discovery`, `inspection`, `verification`, and `routing`, returning stable reason codes plus machine-readable missing evidence. **Verification eligible** means only that current evidence supports attempting a bounded verification action, subject to separate caller policy, authorization, safety, and execution mechanisms. It does not mean verified, successful, payment-authorized, trusted, reliable, or production-routable. Routing requires external execution and canonical-output success, deterministic advertised contracts, established semantics, no contradiction, and reliability. Reliability is deliberately `unknown`, so this phase grants no production routing eligibility. Payment authorization is not encoded in eligibility; `routing eligible != best provider`.
+
+```bash
+npm run demonstrate:evidence-state
+```
+
+The demonstration uses offline fixtures only. Its kadec0-like, x402atlas-like, and StableEnrich-like records are explicitly labeled reconstructed offline fixtures from previously observed evidence, not new live observations. It performs no discovery, provider, payment, wallet, facilitator, MCP, or package-installation action.
+
 A small TypeScript/Node.js prototype for machine-native capability discovery, provider routing, and local execution. It intentionally has no database, authentication, external APIs, payment system, crypto, Cloudflare, or MCP SDK.
 
 ## Architecture

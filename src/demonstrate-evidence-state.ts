@@ -1,0 +1,4 @@
+import { deriveCapabilityEvidenceState, decideEligibility } from "./capability-evidence-state.js";
+import { evidenceFixtures } from "./evidence-state-fixtures.js";
+const reconstructed = new Set(["kadec0-like", "x402atlas-like", "stableenrich-like"]);
+for(const name of Object.keys(evidenceFixtures)) { const fixture=evidenceFixtures[name]; const state=deriveCapabilityEvidenceState(fixture); const provenance=reconstructed.has(name) ? "offline fixture reconstructed from previously observed evidence; not a new live observation" : "offline synthetic fixture"; console.log(`\n${name} — ${provenance}`); console.log("EVIDENCE STATE",JSON.stringify(state)); for(const target of ["discovery","inspection","verification","routing"] as const) { const d=decideEligibility(state,target,{readOnly:fixture.invocation?.readOnly}); console.log(`${target}: ${d.eligible}`,JSON.stringify({reasons:d.reasonCodes,missingEvidence:d.missingEvidence})); } }
