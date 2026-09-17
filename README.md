@@ -131,6 +131,22 @@ This layer deliberately has no success-ratio thresholds and no reliability, qual
 ```bash
 npm run demonstrate:operational-evidence
 ```
+## Phase 11C: caller-defined operational acceptance
+
+Phase 11C adds a separate pure layer: `ObservationLedger → EvidenceWindow → EvidenceMeasurements → OperationalEvidenceAssessment → OperationalAcceptanceAssessment`. **Measurement** is what happened. **Evidence sufficiency** is whether enough comparable, recent evidence exists. **Operational acceptance** is whether that sufficient evidence satisfies one caller's explicit performance criteria. **Reliability interpretation** is not implemented, and routing integration is not implemented.
+
+`OperationalAcceptanceCriteria` supports only independent minimum execution-success ratio, minimum canonical-success ratio, maximum mean transport latency, and maximum observed transport latency. Every configured criterion uses AND semantics; there are no weights, points, grades, or composite score. Minimum boundaries pass at `observed >= required`; maximum boundaries pass at `observed <= required`.
+
+The outcome is deliberately three-state: `NOT_EVALUATED` means evidence was insufficient, no criteria were supplied, or a requested measurement is unavailable; `ACCEPTED` means sufficient evidence and every configured criterion passed; `REJECTED` means sufficient evidence and at least one configured criterion failed. Thus **insufficient evidence != rejected performance** and **NOT_EVALUATED != REJECTED**. Missing ratios or latency are never fabricated as zero. Phase 11B requirements should normally require the samples a Phase 11C criterion needs.
+
+Acceptance is caller-specific: the same evidence can be accepted by one caller and rejected by another without either caller being universally correct. `accepted != universally reliable`, `accepted != trusted`, `accepted != best provider`, `accepted != payment authorized`, and `accepted != routing eligible`. The assessment carries a compact evidence reference (capability/provider/resource where present, `asOf`, window definition, and selected observation IDs) plus a criteria snapshot; it does not copy raw observations.
+
+`CapabilityEvidenceState.reliability` remains `unknown`. Phase 10E eligibility, resolver, ranking, policy, payment, and execution behavior remain unchanged. Run the offline-only synthetic-fixture demonstration with:
+
+```bash
+npm run demonstrate:operational-acceptance
+```
+
 # Phase 9A: read-only external x402 discovery
 
 Phase 9A adds a deliberately separate ingestion path:

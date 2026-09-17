@@ -43,10 +43,13 @@ export interface OperationalEvidenceAssessment {
     executionAttempts: number; executionSuccesses: number; executionFailures: number; executionSuccessRatio?: number;
     canonicalEvaluations: number; canonicalSuccesses: number; canonicalFailures: number; canonicalSuccessRatio?: number;
     transportLatencySamples: number; earliestObservedAt?: string; latestObservedAt?: string;
+    transportLatency?: Readonly<{ count: number; min: number; max: number; mean: number }>;
     evidenceSpanMs?: number; newestObservationAgeMs?: number; oldestObservationAgeMs?: number;
     contractFingerprints: readonly string[]; unknownContractObservationCount: number; mixedKnownContracts: boolean;
   }>;
   readonly requirementSnapshot: Readonly<OperationalEvidenceRequirement>;
+  /** Compact reproducible identity of the selected evidence; raw observations stay in the ledger. */
+  readonly evidenceReference: Readonly<{ capabilityId: string; providerId: string; resourceId?: string; asOf: string; evidenceWindow: EvidenceWindow["definition"]; selectedObservationIds: readonly string[] }>;
 }
 
 const MAX_VALUE = 2_147_483_647;
@@ -74,6 +77,7 @@ export function assessOperationalEvidence(window: EvidenceWindow, measurements: 
     canonicalEvaluations: measurements.canonicalEvaluations, canonicalSuccesses: measurements.canonicalSuccesses, canonicalFailures: measurements.canonicalFailures,
     ...(measurements.canonicalSuccessRatio === undefined ? {} : { canonicalSuccessRatio: measurements.canonicalSuccessRatio }),
     transportLatencySamples: measurements.transportLatencySamples,
+    ...(measurements.transportLatency === undefined ? {} : { transportLatency: { ...measurements.transportLatency } }),
     ...(earliest === undefined ? {} : { earliestObservedAt: earliest }), ...(latest === undefined ? {} : { latestObservedAt: latest }),
     ...(earliest === undefined || latest === undefined ? {} : { evidenceSpanMs: time(latest) - time(earliest) }),
     ...(latest === undefined || futureIds.length ? {} : { newestObservationAgeMs: asOfMs - time(latest) }),
@@ -102,5 +106,6 @@ export function assessOperationalEvidence(window: EvidenceWindow, measurements: 
     if (window.contractFingerprints.length === 0) reasons.push("NO_KNOWN_CONTRACT");
     if (window.mixedContracts || window.unknownContractObservations > 0 || window.contractFingerprints.length === 0) missing.push({ kind: "single_known_contract", required: true, observed: false });
   }
-  return { status: reasons.length ? "insufficient" : "sufficient", reasonCodes: reasons, missingEvidence: missing, evidenceSummary: summary, requirementSnapshot: { ...requirement } };
+  const evidenceReference = Object.freeze({ capabilityId: window.definition.capabilityId, providerId: window.definition.providerId, ...(window.definition.resourceId === undefined ? {} : { resourceId: window.definition.resourceId }), asOf: requirement.asOf, evidenceWindow: Object.freeze({ ...window.definition }), selectedObservationIds: Object.freeze([...window.selectedObservationIds]) });
+  return { status: reasons.length ? "insufficient" : "sufficient", reasonCodes: reasons, missingEvidence: missing, evidenceSummary: summary, requirementSnapshot: { ...requirement }, evidenceReference };
 }

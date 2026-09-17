@@ -19,6 +19,7 @@
     ,"demonstrate:evidence-state": "tsx src/demonstrate-evidence-state.ts"
     ,"demonstrate:observation-ledger": "tsx src/demonstrate-observation-ledger.ts"
     ,"demonstrate:operational-evidence": "tsx src/demonstrate-operational-evidence.ts"
+    ,"demonstrate:operational-acceptance": "tsx src/demonstrate-operational-acceptance.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
