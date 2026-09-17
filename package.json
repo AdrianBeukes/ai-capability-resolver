@@ -23,6 +23,7 @@
     ,"demonstrate:capability-qualification": "tsx src/demonstrate-capability-qualification.ts"
     ,"demonstrate:candidate-qualification-set": "tsx src/demonstrate-candidate-qualification-set.ts"
     ,"demonstrate:transaction-authorization": "tsx src/demonstrate-transaction-authorization.ts"
+    ,"demonstrate:candidate-admissibility": "tsx src/demonstrate-candidate-admissibility.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

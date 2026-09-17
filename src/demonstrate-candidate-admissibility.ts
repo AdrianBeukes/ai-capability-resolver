@@ -1,0 +1,22 @@
+import { assessCandidateAdmissibility } from "./candidate-admissibility.js";
+import { qualifyCapability } from "./capability-qualification.js";
+import { authorizeTransaction, type TransactionAuthorizationPolicy } from "./transaction-authorization.js";
+
+const id={capabilityId:"web.search",providerId:"provider-a",resourceId:"search"};
+const qualified=()=>qualifyCapability({...id,semanticClassification:{capabilityId:"web.search" as const,resourceId:id.resourceId,status:"matched",confidence:100,evidence:[],missingEvidence:[],rejectionReasons:[]}}, {requireSemanticMatch:true});
+const notQualified=()=>qualifyCapability({...id,semanticClassification:{capabilityId:"web.search" as const,resourceId:id.resourceId,status:"rejected",confidence:0,evidence:[],missingEvidence:[],rejectionReasons:[]}}, {requireSemanticMatch:true});
+const notEstablished=()=>qualifyCapability(id,{requireSemanticMatch:true});
+const proposal={...id,invocation:{method:"GET",resource:"/search"},payment:{status:"FREE" as const}};
+const authorized=()=>authorizeTransaction(proposal,{allowFree:true});
+const notAuthorized=()=>authorizeTransaction(proposal,{allowFree:false});
+const authorizationUnknown=()=>authorizeTransaction(proposal,{});
+const show=(label:string,q=qualified(),a=authorized())=>{const r=assessCandidateAdmissibility({qualification:q,authorization:a}); console.log(`${label}: ${r.status} | missing=${r.missingGates.join(",")||"none"} | failed=${r.failedGates.join(",")||"none"}`);};
+show("A. qualified + authorized");
+show("B. qualified + not authorized",qualified(),notAuthorized());
+show("C. not qualified + authorized",notQualified(),authorized());
+show("D. qualified + authorization not established",qualified(),authorizationUnknown());
+show("E. qualification not established + not authorized",notEstablished(),notAuthorized());
+show("F. identity mismatch",qualified(),authorizeTransaction({...proposal,providerId:"provider-b"},{allowFree:true}));
+const policyA:TransactionAuthorizationPolicy={allowFree:true}, policyB:TransactionAuthorizationPolicy={allowFree:false};
+show("G1. same qualified candidate, caller policy A",qualified(),authorizeTransaction(proposal,policyA));
+show("G2. same qualified candidate, caller policy B",qualified(),authorizeTransaction(proposal,policyB));
