@@ -1,0 +1,16 @@
+import { ObservationLedger, deriveEvidenceMeasurements } from "./observation-ledger.js";
+import { assessOperationalEvidence } from "./operational-evidence.js";
+import { projectSelectionMeasurements, type SelectionMeasurementFamily } from "./selection-measurements.js";
+import type { CandidateAdmissibilityResult } from "./candidate-admissibility.js";
+const cap="web.search", asOf="2026-01-02T00:00:00.000Z";
+const admissible=(providerId:string):CandidateAdmissibilityResult=>({status:"ADMISSIBLE",identity:{capabilityId:cap,providerId},gates:[],missingGates:[],failedGates:[],provenance:{qualification:{} as never,authorization:{} as never}});
+function evidence(providerId:string, rows:readonly {ok:boolean; canonical:boolean; latency?:number; contract?:string; mode?:"external"|"simulated"}[], sufficient=true) { const l=new ObservationLedger(); l.appendMany(rows.map((r,i)=>({observationId:`${providerId}-${i}`,capabilityId:cap,providerId,observedAt:new Date(Date.UTC(2026,0,1,0,0,i)).toISOString(),executionMode:r.mode??"external",source:"fixture" as const,contractFingerprint:r.contract,transport:{attempted:true,latencyMs:r.latency},execution:{attempted:true,succeeded:r.ok},canonicalOutput:{evaluated:true,succeeded:r.canonical}}))); const w=l.select({capabilityId:cap,providerId,executionMode:rows[0]?.mode??"external"}); return assessOperationalEvidence(w,deriveEvidenceMeasurements(w),{asOf,minimumExecutionAttempts:sufficient?1:20}); }
+function show(label:string, provider:string, rows:Parameters<typeof evidence>[1], req:readonly SelectionMeasurementFamily[], sufficient=true) { const r=projectSelectionMeasurements({admissibility:admissible(provider),operationalEvidence:evidence(provider,rows,sufficient),request:{requiredMeasurements:req}}); console.log(`${label}: ${r.status==="ESTABLISHED"?"measurement established":"measurement not established"}`,JSON.stringify(r)); }
+show("A observed execution success","A",Array.from({length:10},(_,i)=>({ok:i<9,canonical:i<9})),["EXECUTION_SUCCESS"]);
+show("B 1/1","B1",[{ok:true,canonical:true}],["EXECUTION_SUCCESS"]); show("B 100/100","B100",Array.from({length:100},()=>({ok:true,canonical:true})),["EXECUTION_SUCCESS"]);
+show("C observed canonical success","C",Array.from({length:10},(_,i)=>({ok:true,canonical:i<8})),["EXECUTION_SUCCESS","CANONICAL_SUCCESS"]);
+show("D observed transport latency","D",[50,75,75,100,100,100,100,100,100,200].map(x=>({ok:true,canonical:true,latency:x})),["TRANSPORT_LATENCY"]);
+show("E requested latency missing","E",[{ok:true,canonical:true}],["TRANSPORT_LATENCY"]); show("F partial facts retained","F",[{ok:true,canonical:true}],["CANONICAL_SUCCESS","TRANSPORT_LATENCY"]);
+show("G insufficient operational evidence","G",[{ok:true,canonical:true}],["EXECUTION_SUCCESS"],false); show("H simulation-only evidence","H",[{ok:true,canonical:true,mode:"simulated"}],["EXECUTION_SUCCESS"]);
+show("I single known contract","I",[{ok:true,canonical:true,contract:"sha256:known"}],["EXECUTION_SUCCESS"]);
+try { projectSelectionMeasurements({admissibility:admissible("A"),operationalEvidence:evidence("B",[{ok:true,canonical:true}]),request:{requiredMeasurements:["EXECUTION_SUCCESS"]}}); } catch (e) { console.log("J identity mismatch: conservative refusal",(e as Error).message); }

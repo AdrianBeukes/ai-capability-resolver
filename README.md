@@ -1,5 +1,15 @@
 # AI Capability Resolver
 
+## Phase 13A: selection measurement projection
+
+`SelectionMeasurementProjection` is a pure projection of existing Phase 11B operational-evidence assessments for an already `ADMISSIBLE` candidate. A caller explicitly requests `EXECUTION_SUCCESS`, `CANONICAL_SUCCESS`, and/or `TRANSPORT_LATENCY`; the result is `ESTABLISHED` only when every requested family is available from sufficient external evidence. It does not collect observations, calculate new statistics, decide evidence sufficiency or operational acceptance, qualify, authorize, decide admissibility, establish universal reliability, rank, select, or recommend.
+
+Ratios retain their numerator and denominator counts. Transport-latency summaries retain sample counts. Simulation is never presented as external performance, and explicit evidence-window, contract, `asOf`, sufficiency, and unavailable-measurement provenance stays visible. Duplicate requested families are deterministically deduplicated; omitted resource identity and an explicitly empty resource remain distinct, while a one-sided resource identity is retained without inventing equality. The projection is immutable, deterministic, and contains no raw ledger observations.
+
+```bash
+npm run demonstrate:selection-measurements
+```
+
 ## Phase 10E: capability evidence state and eligibility
 
 Phase 10E adds a pure, protocol-neutral layer: **evidence** is what a source advertised or an observation recorded; **state** is a deterministic summary of that immutable evidence; and **eligibility** says whether that state is sufficient for one action. Caller **policy** (including payment authorization) remains separate, and ranking is future work. Thus `eligible != best`, `eligible != reliable`, `discovered != executable`, `verified once != reliable`, and simulated success never creates production eligibility.
