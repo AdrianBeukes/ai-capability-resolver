@@ -25,6 +25,7 @@
     ,"demonstrate:transaction-authorization": "tsx src/demonstrate-transaction-authorization.ts"
     ,"demonstrate:candidate-admissibility": "tsx src/demonstrate-candidate-admissibility.ts"
     ,"demonstrate:admissible-candidate-set": "tsx src/demonstrate-admissible-candidate-set.ts"
+    ,"demonstrate:economic-selection": "tsx src/demonstrate-economic-selection.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

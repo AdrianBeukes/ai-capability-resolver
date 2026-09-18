@@ -1,0 +1,12 @@
+import { selectEconomically } from "./economic-selection.js";
+import type { CandidateAdmissibilityResult } from "./candidate-admissibility.js";
+const cap="web.search", policy={criterion:"LOWEST_EXACT_TRANSACTION_COST" as const};
+const candidate=(providerId:string,payment:unknown):{admissibility:CandidateAdmissibilityResult}=>({admissibility:{status:"ADMISSIBLE",identity:{capabilityId:cap,providerId},gates:[],missingGates:[],failedGates:[],provenance:{qualification:{} as never,authorization:{capabilityId:cap,providerId,proposalSnapshot:{capabilityId:cap,providerId,payment}} as never}}});
+const free=(p:string)=>candidate(p,{status:"FREE"}); const paid=(p:string,network:string,asset:string,atomicAmount:string)=>candidate(p,{status:"REQUIRED",requirement:{scheme:"exact",network,asset,atomicAmount}});
+const show=(label:string,candidates:ReturnType<typeof free>[])=>{const r=selectEconomically({policy,candidates});console.log(`${label}: ${r.status==="SELECTED"?"selected under LOWEST_EXACT_TRANSACTION_COST":"cost comparison not established"}`,r.selected?.identity,r.tiedMinimumCandidates.map(x=>x.identity.providerId));};
+show("A. SAME ASSET/NETWORK",[paid("A","X","Q","100"),paid("B","X","Q","80"),paid("C","X","Q","120")]);
+show("B. TIE",[paid("A","X","Q","80"),paid("B","X","Q","80")]);
+show("C. CROSS-ASSET",[paid("A","X","Q","100"),paid("B","X","R","1")]); show("D. CROSS-NETWORK",[paid("A","X","Q","100"),paid("B","Y","Q","1")]);
+show("E. FREE VS POSITIVE PAID",[free("A"),paid("B","X","Q","1")]); show("F. FREE VS INCOMPARABLE POSITIVE PAID",[free("A"),paid("B","X","Q","100"),paid("C","Y","R","1")]);
+show("G. FREE VS UNKNOWN",[free("A"),candidate("B",{status:"UNKNOWN"})]); show("H. FREE VS PAID ZERO",[free("A"),paid("B","X","Q","0")]);
+show("I. VERY LARGE ATOMIC VALUES",[paid("A","X","Q","900719925474099312346"),paid("B","X","Q","900719925474099312345")]);
