@@ -27,6 +27,7 @@
     ,"demonstrate:admissible-candidate-set": "tsx src/demonstrate-admissible-candidate-set.ts"
     ,"demonstrate:economic-selection": "tsx src/demonstrate-economic-selection.ts"
     ,"demonstrate:selection-measurements": "tsx src/demonstrate-selection-measurements.ts"
+    ,"demonstrate:measurement-comparability": "tsx src/demonstrate-selection-measurement-comparability.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

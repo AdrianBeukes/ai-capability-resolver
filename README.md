@@ -1,5 +1,15 @@
 # AI Capability Resolver
 
+## Phase 13B: cross-candidate selection measurement comparability
+
+Measurement comparability is a pure, caller-defined assessment of whether established Phase 13A measurements across one supplied canonical-capability population can be used in a later comparison. It returns `COMPARABLE`, `NOT_COMPARABLE`, or `NOT_ESTABLISHED`; it neither ranks, selects, recommends, nor scores candidates.
+
+Baseline comparability requires at least two established external projections for the requested measurement family and valid evidence context. It does not require equal evidence contexts, ratios, latency values, sample counts, providers, resources, contracts, or windows; it does not imply good performance, reliability, preference, or selection. Optional caller requirements can require single/equal contract fingerprints, `asOf` or window alignment/skew, and independent per-candidate observation or family-sample minimums. Those quantity checks are comparison requirements, not Phase 11B sufficiency recalculations; zero is a valid minimum. No evidence is pooled. Missing or inconsistent facts take precedence over established failures, while both remain separately reported. Different fingerprints matter only when equality is requested; ratios retain denominators and latency differences do not determine comparability. Exact `asOf` alignment and an `asOf` skew threshold cannot be supplied together, avoiding duplicate semantics.
+
+```bash
+npm run demonstrate:measurement-comparability
+```
+
 ## Phase 13A: selection measurement projection
 
 `SelectionMeasurementProjection` is a pure projection of existing Phase 11B operational-evidence assessments for an already `ADMISSIBLE` candidate. A caller explicitly requests `EXECUTION_SUCCESS`, `CANONICAL_SUCCESS`, and/or `TRANSPORT_LATENCY`; the result is `ESTABLISHED` only when every requested family is available from sufficient external evidence. It does not collect observations, calculate new statistics, decide evidence sufficiency or operational acceptance, qualify, authorize, decide admissibility, establish universal reliability, rank, select, or recommend.
