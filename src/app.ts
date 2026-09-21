@@ -8,6 +8,7 @@ import { resolveProvider, resolveRequest, selectProvider } from "./resolver.js";
 import { CURRENCY_CONVERSION, type CapabilityId, type CurrencyConversionInput, type ExecutionPolicy } from "./types.js";
 import { SimulatedPaymentClient, type PaymentClient } from "./payment.js";
 import { decodeX402, encodeX402, isPaymentRequired, type PaymentRequirements } from "./x402.js";
+import { WebSearchGateway } from "./web-search-gateway.js";
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, { "content-type": "application/json" });
@@ -16,7 +17,7 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown): 
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
   let body = "";
-  for await (const chunk of request) body += chunk;
+  for await (const chunk of request) { body += chunk; if (body.length > 65536) throw new Error("Request body too large."); }
 
   try {
     return JSON.parse(body) as unknown;
@@ -135,12 +136,18 @@ async function invokeTool(capability: CapabilityId, arguments_: ToolArguments, p
   return { tool: capability, providerId: provider.id, output, routing };
 }
 
-export function createAppServer(registry: ProviderRegistry = createProviderRegistry(), paymentClient: PaymentClient = new SimulatedPaymentClient()) {
+export function createAppServer(registry: ProviderRegistry = createProviderRegistry(), paymentClient: PaymentClient = new SimulatedPaymentClient(), gateway: WebSearchGateway = new WebSearchGateway([])) {
   return createServer(async (request, response) => {
     try {
       const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
 
       if (request.method === "GET" && pathname === "/health") return sendJson(response, 200, { status: "ok" });
+      if (request.method === "GET" && pathname === "/v1/capabilities") return sendJson(response, 200, { capabilities: [{ capability: "web.search", input: { query: "string", limit: "positive integer <= 20" }, output: { results: [{ title: "string?", url: "http(s) URL", snippet: "string?" }] } }] });
+      if (request.method === "POST" && pathname === "/v1/execute") {
+        const result = await gateway.execute(await readJson(request));
+        const code = result.ok ? 200 : result.error.code === "INVALID_REQUEST" ? 400 : result.error.code === "CAPABILITY_NOT_SUPPORTED" ? 404 : result.error.code === "NO_ADMISSIBLE_PROVIDER" || result.error.code === "SELECTION_NOT_ESTABLISHED" ? 422 : result.error.code === "PAYMENT_REQUIRED_BY_PROVIDER" ? 502 : 503;
+        return sendJson(response, code, result);
+      }
       if (request.method === "GET" && pathname === "/capabilities") return sendJson(response, 200, { capabilities: discoverCapabilities(registry.list()) });
       if (request.method === "GET" && pathname === "/.well-known/capabilities.json") {
         return sendJson(response, 200, { version: "1.0.0", capabilities: getCapabilityCatalogue(registry.list()) });

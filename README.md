@@ -279,6 +279,14 @@ The bounded experiment selected and found three resources. Invocation metadata w
 Inspection records bounded per-remote protocol attempts, HTTP/network attempts, and metadata method counters, and distinguishes unsafe endpoints, authentication/payment barriers, timeout, network unreachable, malformed responses, unsupported protocol, and protocol-negotiation failure. `tools/list` pagination remains bounded; 2026 list cache hints are accepted as advertised metadata. Tool schemas may use local JSON Schema 2020-12 structures (`properties`, `required`, `$defs` local references, `oneOf`, `anyOf`, `allOf`); external `$ref` URLs are inert and never fetched. The existing DNS rebinding/TOCTOU limitation remains unchanged.
 # Phase 11F: transaction proposal and caller authorization
 
+## Revenue MVP: AI Capability Gateway
+
+AI Capability Resolver is becoming an AI Capability Gateway. The commercial MVP exposes `POST /v1/execute` for `web.search`: one canonical request (`query`, optional `limit <= 20`) and one canonical result (`results` with HTTP(S) URLs). `GET /v1/capabilities` exposes only this public capability and `GET /health` exposes basic service status.
+
+The offline control plane establishes provider metadata, evidence, qualification, comparability, authorization, and admissibility. The online execution plane consumes those already-established facts, selects by exact quoted transaction cost (or only established comparable performance), calls a deterministic provider adapter, validates canonical output, and writes compact private observations/accounting. Fallback is bounded (maximum two distinct independently admissible providers) and is not a reliability reclassification.
+
+The payment plane is intentionally inactive: accounting marks requests `NOT_ENABLED`; no x402 proof, wallet, settlement, or paid execution occurs. The intended next-milestone charging rule is a charge for a successful gateway result, never merely an internal provider attempt.
+
 ## Phase 13C: single-criterion performance selection
 
 Performance selection is deterministic caller-directed selection over a supplied Phase 13B `COMPARABLE` population using exactly one explicit established measurement criterion: `HIGHEST_EXECUTION_SUCCESS_RATIO`, `HIGHEST_CANONICAL_SUCCESS_RATIO`, or `LOWEST_MEAN_TRANSPORT_LATENCY`. It consumes only the retained Phase 13B candidate contexts; it never recomputes evidence, measurements, or comparability.

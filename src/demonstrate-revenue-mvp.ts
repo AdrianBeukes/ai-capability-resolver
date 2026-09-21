@@ -1,0 +1,5 @@
+import { WebSearchGateway, type WebSearchProviderAdapter } from "./web-search-gateway.js";
+const provider=(providerId:string, executeNative:WebSearchProviderAdapter["executeNative"], adaptToCanonical:WebSearchProviderAdapter["adaptToCanonical"], quotedCostUsd:number):WebSearchProviderAdapter=>({providerId,quotedCostUsd,qualified:true,authorized:true,admissible:true,executeNative,adaptToCanonical});
+const gateway=new WebSearchGateway([provider("fixture-a",async()=>{throw new Error("fixture failure");},x=>x,0.001),provider("fixture-b",async()=>({links:[{headline:"Gateway",href:"https://example.com/gateway"}]}),x=>({results:(x as {links:{headline:string;href:string}[]}).links.map(r=>({title:r.headline,url:r.href}))}),0.002)]);
+console.log(JSON.stringify(await gateway.execute({capability:"web.search",input:{query:"offline demo",limit:1},policy:{selection:"LOWEST_EXACT_TRANSACTION_COST",maxProviderAttempts:2}}),null,2));
+console.log("CALLER\n  ↓\n/v1/execute\n  ↓\nCONTROL PLANE\n  ↓\nADMISSIBLE SET\n  ↓\nSELECTION\n  ↓\nPROVIDER EXECUTION\n  ↓\nCANONICAL RESULT\n  ↓\nOBSERVATION + ACCOUNTING");

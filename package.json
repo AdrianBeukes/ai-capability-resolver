@@ -29,6 +29,7 @@
     ,"demonstrate:selection-measurements": "tsx src/demonstrate-selection-measurements.ts"
     ,"demonstrate:measurement-comparability": "tsx src/demonstrate-selection-measurement-comparability.ts"
     ,"demonstrate:performance-selection": "tsx src/demonstrate-performance-selection.ts"
+    ,"demonstrate:revenue-mvp": "tsx src/demonstrate-revenue-mvp.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
