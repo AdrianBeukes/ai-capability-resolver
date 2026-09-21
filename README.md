@@ -279,6 +279,14 @@ The bounded experiment selected and found three resources. Invocation metadata w
 Inspection records bounded per-remote protocol attempts, HTTP/network attempts, and metadata method counters, and distinguishes unsafe endpoints, authentication/payment barriers, timeout, network unreachable, malformed responses, unsupported protocol, and protocol-negotiation failure. `tools/list` pagination remains bounded; 2026 list cache hints are accepted as advertised metadata. Tool schemas may use local JSON Schema 2020-12 structures (`properties`, `required`, `$defs` local references, `oneOf`, `anyOf`, `allOf`); external `$ref` URLs are inert and never fetched. The existing DNS rebinding/TOCTOU limitation remains unchanged.
 # Phase 11F: transaction proposal and caller authorization
 
+## Phase 13C: single-criterion performance selection
+
+Performance selection is deterministic caller-directed selection over a supplied Phase 13B `COMPARABLE` population using exactly one explicit established measurement criterion: `HIGHEST_EXECUTION_SUCCESS_RATIO`, `HIGHEST_CANONICAL_SUCCESS_RATIO`, or `LOWEST_MEAN_TRANSPORT_LATENCY`. It consumes only the retained Phase 13B candidate contexts; it never recomputes evidence, measurements, or comparability.
+
+Success ratios use retained numerator/denominator facts and exact `BigInt` cross multiplication. Sample quantity is evidence context, not a tie-break. Latency uses retained mean transport latency only. All exact performance ties remain visible; canonical identity supplies only a deterministic technical tie-break. A selected candidate is selected only from the supplied comparable population and under the explicit caller criterion using its retained established values—it is not a universal provider ranking, reliability claim, execution, payment, or guaranteed success.
+
+The phases remain distinct: Phase 11 owns evidence measurement/sufficiency/acceptance; Phase 12 owns qualification, authorization, admissibility, and economic selection; Phase 13A projects selection measurements; Phase 13B establishes cross-candidate comparability; and Phase 13C performs single-criterion performance selection.
+
 `TransactionProposal` is supplied data for one proposed invocation and its currently known payment requirements. `authorizeTransaction` is a pure, offline caller-policy assessment of that exact proposal. Qualification and authorization are separate: qualification does not imply authorization, and authorization does not select a provider.
 
 Results are `AUTHORIZED`, `NOT_AUTHORIZED`, or `NOT_ESTABLISHED`. The latter means a policy-required fact is absent, invalid, contradictory, or not comparable. Established policy failures remain separately available in `failedRequirements`, while unavailable facts are in `missingFacts`; missing evidence has conservative precedence. Assessments are deterministic per identity, payment mode, method, scheme, network, asset, atomic amount, and pay-to.
