@@ -1,8 +1,11 @@
 import { createAppServer } from "./app.js";
+import { loadProductionConfig } from "./production-config.js";
 
-export const server = createAppServer();
+const config = loadProductionConfig();
+export const server = createAppServer(undefined, undefined, undefined, config.payment);
 
 if (process.env.NODE_ENV !== "test") {
-  const port = Number(process.env.PORT ?? 3000);
-  server.listen(port, () => console.log(`AI Capability Resolver listening on http://localhost:${port}`));
+  server.listen(config.port, () => console.log(JSON.stringify({ event: "listening", port: config.port })));
+  const shutdown = () => server.close(() => process.exit(0));
+  process.once("SIGTERM", shutdown); process.once("SIGINT", shutdown);
 }

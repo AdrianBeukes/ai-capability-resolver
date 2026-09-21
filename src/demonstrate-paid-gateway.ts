@@ -1,0 +1,9 @@
+import { createAppServer } from "./app.js";
+import { WebSearchGateway } from "./web-search-gateway.js";
+import { encodeX402 } from "./x402.js";
+let executions:number=0;
+const gateway=new WebSearchGateway([{providerId:"fixture",qualified:true,authorized:true,admissible:true,executeNative:async()=>{executions++;return {results:[{url:"https://example.com"}]};},adaptToCanonical:x=>x}]);
+const payment={enabled:true,priceAtomic:"10000",network:"eip155:84532",asset:"local-usdc",payTo:"merchant-placeholder",scheme:"exact",publicBaseUrl:"http://localhost",serviceName:"Demo",serviceVersion:"1"};
+const server=createAppServer(undefined,undefined,gateway,payment); await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
+const url=`http://127.0.0.1:${(server.address() as any).port}/v1/execute`;const body=JSON.stringify({capability:"web.search",input:{query:"private"}});
+try { const unpaid=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body});if(unpaid.status!==402||Number(executions)!==0)throw new Error("unpaid boundary failed"); const proof={x402Version:2,resource:{url:"/v1/execute"},accepted:{scheme:"exact",network:"eip155:84532",asset:"local-usdc",payTo:"merchant-placeholder",amount:"10000",maxTimeoutSeconds:300,extra:{}},payload:{simulation:{authorization:"LOCAL:demo-1"}},extensions:{}};const paid=await fetch(url,{method:"POST",headers:{"content-type":"application/json","payment-signature":encodeX402(proof)},body});if(!paid.ok||Number(executions)!==1||!paid.headers.get("payment-response"))throw new Error("paid flow failed");const replay=await fetch(url,{method:"POST",headers:{"content-type":"application/json","payment-signature":encodeX402(proof)},body});if(replay.status!==402||Number(executions)!==1)throw new Error("replay protection failed");console.log("offline paid gateway demo passed"); } finally { await new Promise<void>(r=>server.close(()=>r())); }

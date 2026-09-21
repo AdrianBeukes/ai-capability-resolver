@@ -1,5 +1,13 @@
 # AI Capability Resolver
 
+## Production x402 gateway boundary
+
+`POST /v1/execute` can be configured as an x402 V2 protected public boundary. Unpaid calls receive `402` with `PAYMENT-REQUIRED`; malformed, underpaid, mis-bound, or replayed proofs do not run providers. The included verifier is deterministic and offline only—production facilitator integration is deliberately configuration-gated and no wallet, blockchain, provider payment, treasury transfer, or Luno API call is implemented.
+
+Build and run a generic container with `docker build -t ai-capability-gateway .` then `docker run --env-file .env -p 3000:3000 ai-capability-gateway`. Configure every placeholder in `.env.example`; a production `PUBLIC_BASE_URL` must be HTTPS. Health is `GET /health`, readiness is `GET /ready`, metadata is `GET /v1/capabilities` and `/.well-known/capabilities.json`. Use `npm run smoke:production -- https://your-host` to check health, metadata, and an unpaid 402; it never pays. Hosts should supply TLS, edge rate limiting, and logs; the local replay store is single-instance only and must become durable/shared before real money or multi-instance deployment.
+
+The public price is an exact configured atomic amount, asset, network, scheme, and merchant destination. Margin is only comparable when configured provider cost has the identical asset/network; no FX is attempted. `TREASURY_MODE=manual` is descriptive only. Luno is a future treasury/off-ramp target, not an x402 merchant wallet; verify supported asset/network before any manual transfer.
+
 ## Phase 13B: cross-candidate selection measurement comparability
 
 Measurement comparability is a pure, caller-defined assessment of whether established Phase 13A measurements across one supplied canonical-capability population can be used in a later comparison. It returns `COMPARABLE`, `NOT_COMPARABLE`, or `NOT_ESTABLISHED`; it neither ranks, selects, recommends, nor scores candidates.
